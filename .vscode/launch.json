@@ -1,0 +1,23 @@
+{
+    "type": "java",
+    "name": "Test Database",
+    "request": "launch",
+    "mainClass": "TestDatabase",
+    "projectName": "updated_version_scd_eac51320",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "ProjectPlannerApp",
+            "request": "launch",
+            "mainClass": "ProjectPlannerApp",
+            "projectName": "ProjectPlanner"
+        },
+        {
+            "type": "java",
+            "name": "ProjectPlannerApp",
+            "request": "launch",
+            "mainClass": "ProjectPlannerApp",
+            "projectName": "project-management"
+        }
+    ]
+}
