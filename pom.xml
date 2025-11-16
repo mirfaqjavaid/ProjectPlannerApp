@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.myproject</groupId>
@@ -13,30 +14,35 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <junit.version>5.11.0</junit.version>
         <sqlite.version>3.42.0.0</sqlite.version>
+        <jacoco.version>0.8.11</jacoco.version>
     </properties>
 
     <dependencies>
-        <!-- ✅ SQLite JDBC Driver -->
+
+        <!-- SQLite JDBC -->
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
             <version>${sqlite.version}</version>
         </dependency>
 
-        <!-- ✅ JUnit 5 -->
+        <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Maven Compiler Plugin -->
+
+            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -47,7 +53,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Maven Surefire plugin (runs JUnit tests) -->
+            <!-- Runs JUnit Tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -61,12 +67,40 @@
                 </configuration>
             </plugin>
 
-            <!-- ✅ Sonar Maven Plugin for SonarQube analysis -->
+            <!-- ✅ JaCoCo Plugin -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+
+                    <!-- Adds JaCoCo agent to tests -->
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+
+                    <!-- Generates coverage report -->
+                    <execution>
+                        <id>report</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+            <!-- Sonar Scanner (for SonarQube) -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
                 <version>3.9.1.2184</version>
             </plugin>
+
         </plugins>
     </build>
+
 </project>
