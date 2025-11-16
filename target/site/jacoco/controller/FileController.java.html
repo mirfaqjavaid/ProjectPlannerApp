@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">controller</a> &gt; <span class="el_source">FileController.java</span></div><h1>FileController.java</h1><pre class="source lang-java linenums">package controller;
+
+import java.io.*;
+import model.*;
+import java.util.*;
+
+<span class="nc" id="L7">public class FileController {</span>
+<span class="nc" id="L8">    public static class ParseResult&lt;T&gt; {</span>
+<span class="nc" id="L9">        public final List&lt;T&gt; items = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L10">        public final List&lt;String&gt; errors = new ArrayList&lt;&gt;();</span>
+    }
+
+    // --- Load tasks from file (with parsing errors captured) ---
+    public static ParseResult&lt;Task&gt; loadTasksWithErrors(String filePath) {
+<span class="nc" id="L15">        ParseResult&lt;Task&gt; res = new ParseResult&lt;&gt;();</span>
+<span class="nc" id="L16">        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {</span>
+            String line;
+<span class="nc" id="L18">            int ln = 0;</span>
+<span class="nc bnc" id="L19" title="All 2 branches missed.">            while ((line = br.readLine()) != null) {</span>
+<span class="nc" id="L20">                ln++;</span>
+<span class="nc" id="L21">                String trimmed = line.trim();</span>
+<span class="nc bnc" id="L22" title="All 2 branches missed.">                if (trimmed.isEmpty()) continue; // skip empty lines</span>
+<span class="nc bnc" id="L23" title="All 2 branches missed.">                if (!Character.isDigit(trimmed.charAt(0))) continue;</span>
+<span class="nc" id="L24">                List&lt;String&gt; parts = parseCsvLine(line);</span>
+<span class="nc bnc" id="L25" title="All 2 branches missed.">                if (parts.size() &lt; 4) {</span>
+<span class="nc" id="L26">                    res.errors.add(&quot;Line &quot; + ln + &quot;: not enough fields (expected id,title,start,end,...)&quot;);</span>
+<span class="nc" id="L27">                    continue;</span>
+                }
+                try {
+<span class="nc" id="L30">                    int id = Integer.parseInt(parts.get(0).trim());</span>
+<span class="nc" id="L31">                    String title = parts.get(1).trim();</span>
+<span class="nc" id="L32">                    String start = parts.get(2).trim();</span>
+<span class="nc" id="L33">                    String end = parts.get(3).trim();</span>
+<span class="nc" id="L34">                    StringBuilder deps = new StringBuilder();</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">                    for (int i = 4; i &lt; parts.size(); i++) {</span>
+<span class="nc" id="L36">                        String tok = parts.get(i).trim();</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">                        if (!tok.isEmpty()) {</span>
+<span class="nc bnc" id="L38" title="All 2 branches missed.">                            if (deps.length() &gt; 0) deps.append(&quot;, &quot;);</span>
+<span class="nc" id="L39">                            deps.append(tok);</span>
+                        }
+                    }
+<span class="nc" id="L42">                    res.items.add(new Task(id, title, start, end, deps.toString()));</span>
+<span class="nc" id="L43">                } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L44">                    res.errors.add(&quot;Line &quot; + ln + &quot;: invalid id '&quot; + parts.get(0).trim() + &quot;'&quot;);</span>
+<span class="nc" id="L45">                } catch (Exception ex) {</span>
+<span class="nc" id="L46">                    res.errors.add(&quot;Line &quot; + ln + &quot;: unexpected parse error: &quot; + ex.getMessage());</span>
+<span class="nc" id="L47">                }</span>
+<span class="nc" id="L48">            }</span>
+<span class="nc" id="L49">        } catch (Exception e) {</span>
+<span class="nc" id="L50">            res.errors.add(&quot;Error reading tasks file: &quot; + e.getMessage());</span>
+<span class="nc" id="L51">        }</span>
+<span class="nc" id="L52">        return res;</span>
+    }
+
+    public static List&lt;Task&gt; loadTasks(String filePath) {
+<span class="nc" id="L56">        ParseResult&lt;Task&gt; pr = loadTasksWithErrors(filePath);</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if (!pr.errors.isEmpty()) {</span>
+<span class="nc" id="L58">            System.err.println(&quot;FileController: task parse warnings/errors:&quot;);</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">            for (String e : pr.errors) System.err.println(&quot;  &quot; + e);</span>
+        }
+<span class="nc" id="L61">        return pr.items;</span>
+    }
+
+    // Parse a CSV line into fields supporting quoted fields with commas
+    private static List&lt;String&gt; parseCsvLine(String line) {
+<span class="nc" id="L66">        List&lt;String&gt; out = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (line == null || line.isEmpty()) return out;</span>
+<span class="nc" id="L68">        StringBuilder cur = new StringBuilder();</span>
+<span class="nc" id="L69">        boolean inQuotes = false;</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        for (int i = 0; i &lt; line.length(); i++) {</span>
+<span class="nc" id="L71">            char c = line.charAt(i);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            if (c == '&quot;') {</span>
+                // toggle inQuotes (handle escaped quotes &quot;&quot;)
+<span class="nc bnc" id="L74" title="All 6 branches missed.">                if (inQuotes &amp;&amp; i+1 &lt; line.length() &amp;&amp; line.charAt(i+1) == '&quot;') {</span>
+<span class="nc" id="L75">                    cur.append('&quot;');</span>
+<span class="nc" id="L76">                    i++; // skip escaped quote</span>
+                } else {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                    inQuotes = !inQuotes;</span>
+                }
+<span class="nc bnc" id="L80" title="All 4 branches missed.">            } else if (c == ',' &amp;&amp; !inQuotes) {</span>
+<span class="nc" id="L81">                out.add(cur.toString()); cur.setLength(0);</span>
+            } else {
+<span class="nc" id="L83">                cur.append(c);</span>
+            }
+        }
+<span class="nc" id="L86">        out.add(cur.toString());</span>
+<span class="nc" id="L87">        return out;</span>
+    }
+
+    // --- Load resources from file ---
+    public static List&lt;Resource&gt; loadResources(String filePath) {
+<span class="nc" id="L92">        List&lt;Resource&gt; resources = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L94">        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {</span>
+            String line;
+
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            while ((line = br.readLine()) != null) {</span>
+<span class="nc" id="L98">                String trimmed = line.trim();</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">                if (trimmed.isEmpty()) continue;</span>
+                // skip header/comment lines
+<span class="nc bnc" id="L101" title="All 6 branches missed.">                if (trimmed.startsWith(&quot;-&quot;) || trimmed.startsWith(&quot;#&quot;) || trimmed.startsWith(&quot;//&quot;)) continue;</span>
+
+                // split only first comma for name, rest are allocations
+<span class="nc" id="L104">                String[] parts = line.split(&quot;,&quot;, 2);</span>
+<span class="nc" id="L105">                String name = parts[0].trim();</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">                    String allocationsStr = (parts.length &gt; 1) ? parts[1].trim() : &quot;&quot;;</span>
+<span class="nc" id="L107">                    List&lt;Allocation&gt; allocations = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                    if (!allocationsStr.isEmpty()) {</span>
+<span class="nc" id="L109">                        String[] allocParts = allocationsStr.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">                        for (String alloc : allocParts) {</span>
+<span class="nc" id="L111">                            alloc = alloc.trim();</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                            if (!alloc.isEmpty()) {</span>
+<span class="nc" id="L113">                                String[] pair = alloc.split(&quot;:&quot;);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                                if (pair.length == 2) {</span>
+                                    try {
+<span class="nc" id="L116">                                        int taskId = Integer.parseInt(pair[0].trim());</span>
+<span class="nc" id="L117">                                        int load = Integer.parseInt(pair[1].trim());</span>
+<span class="nc" id="L118">                                        allocations.add(new Allocation(taskId, load));</span>
+<span class="nc" id="L119">                                    } catch (NumberFormatException e) {</span>
+<span class="nc" id="L120">                                        System.err.println(&quot;Invalid allocation value: &quot; + alloc);</span>
+<span class="nc" id="L121">                                    }</span>
+                                } else {
+<span class="nc" id="L123">                                    System.err.println(&quot;Invalid allocation format: &quot; + alloc);</span>
+                                }
+                            }
+                        }
+                    }
+<span class="nc" id="L128">                    resources.add(new Resource(name, allocations));</span>
+<span class="nc" id="L129">            }</span>
+
+<span class="nc" id="L131">        } catch (Exception e) {</span>
+<span class="nc" id="L132">            System.err.println(&quot; Error reading resources file: &quot; + e.getMessage());</span>
+<span class="nc" id="L133">            e.printStackTrace();</span>
+<span class="nc" id="L134">        }</span>
+
+<span class="nc" id="L136">        return resources;</span>
+    }
+
+    // --- Validation helpers ---
+<span class="nc" id="L140">    public static class ValidationResult {</span>
+<span class="nc" id="L141">        public final List&lt;String&gt; errors = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L142">        public final Set&lt;Integer&gt; invalidTaskIds = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L143">        public final Set&lt;Integer&gt; validTaskIds = new HashSet&lt;&gt;();</span>
+    }
+
+    // Parse various date formats to epoch millis. Returns -1 on failure.
+    public static long parseToMillis(String dateStr) {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (dateStr == null) return -1;</span>
+<span class="nc" id="L149">        dateStr = dateStr.trim();</span>
+        try {
+<span class="nc" id="L151">            java.util.regex.Matcher m = java.util.regex.Pattern.compile(&quot;^(\\d{8})(\\d{4})?([+-]\\d{4})?$&quot;)</span>
+<span class="nc" id="L152">                    .matcher(dateStr);</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            if (m.matches()) {</span>
+<span class="nc" id="L154">                String dpart = m.group(1);</span>
+<span class="nc" id="L155">                String tpart = m.group(2);</span>
+<span class="nc" id="L156">                String off = m.group(3);</span>
+<span class="nc" id="L157">                java.time.LocalDate d = java.time.LocalDate.parse(dpart, java.time.format.DateTimeFormatter.ofPattern(&quot;yyyyMMdd&quot;));</span>
+                java.time.LocalDateTime ldt;
+<span class="nc bnc" id="L159" title="All 2 branches missed.">                if (tpart != null) {</span>
+<span class="nc" id="L160">                    int hh = Integer.parseInt(tpart.substring(0,2));</span>
+<span class="nc" id="L161">                    int mm = Integer.parseInt(tpart.substring(2,4));</span>
+<span class="nc" id="L162">                    ldt = d.atTime(hh, mm);</span>
+<span class="nc" id="L163">                } else {</span>
+<span class="nc" id="L164">                    ldt = d.atStartOfDay();</span>
+                }
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (off != null) {</span>
+<span class="nc" id="L167">                    java.time.ZoneOffset zo = java.time.ZoneOffset.of(off);</span>
+<span class="nc" id="L168">                    java.time.OffsetDateTime odt = java.time.OffsetDateTime.of(ldt, zo);</span>
+<span class="nc" id="L169">                    return odt.toInstant().toEpochMilli();</span>
+                } else {
+<span class="nc" id="L171">                    return ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                }
+            }
+<span class="nc" id="L174">        } catch (Exception ex) {}</span>
+<span class="nc" id="L175">        String[] patterns = new String[]{&quot;yyyyMMddHHmm&quot;,&quot;yyyyMMddHH&quot;,&quot;yyyy-MM-dd HH:mm&quot;,&quot;yyyy-MM-dd&quot;};</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        for (String p : patterns) {</span>
+            try {
+<span class="nc" id="L178">                java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern(p);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">                if (p.equals(&quot;yyyy-MM-dd&quot;)) {</span>
+<span class="nc" id="L180">                    java.time.LocalDate ld = java.time.LocalDate.parse(dateStr, f);</span>
+<span class="nc" id="L181">                    return ld.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                } else {
+<span class="nc" id="L183">                    java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(dateStr, f);</span>
+<span class="nc" id="L184">                    return ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                }
+<span class="nc" id="L186">            } catch (Exception e) {}</span>
+        }
+<span class="nc" id="L188">        return -1;</span>
+    }
+
+    // Validate tasks: check dates, end&gt;start, dependencies format and existence.
+    public static ValidationResult validateTasks(List&lt;model.Task&gt; tasks) {
+<span class="nc" id="L193">        ValidationResult vr = new ValidationResult();</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (tasks == null) return vr;</span>
+        // Collect ids
+<span class="nc" id="L196">        Set&lt;Integer&gt; ids = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        for (model.Task t : tasks) ids.add(t.getId());</span>
+        // Validate each task
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        for (model.Task t : tasks) {</span>
+<span class="nc" id="L200">            int id = t.getId();</span>
+<span class="nc" id="L201">            boolean ok = true;</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">            if (t.getTitle() == null || t.getTitle().trim().isEmpty()) {</span>
+<span class="nc" id="L203">                vr.errors.add(&quot;Task &quot; + id + &quot;: title is empty&quot;);</span>
+            }
+<span class="nc" id="L205">            long s = parseToMillis(t.getStart());</span>
+<span class="nc" id="L206">            long e = parseToMillis(t.getEnd());</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            if (s &lt;= 0) { vr.errors.add(&quot;Task &quot; + id + &quot;: invalid start date '&quot; + t.getStart() + &quot;'&quot;); ok = false; }</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (e &lt;= 0) { vr.errors.add(&quot;Task &quot; + id + &quot;: invalid end date '&quot; + t.getEnd() + &quot;'&quot;); ok = false; }</span>
+<span class="nc bnc" id="L209" title="All 6 branches missed.">            if (s &gt; 0 &amp;&amp; e &gt; 0 &amp;&amp; e &lt;= s) { vr.errors.add(&quot;Task &quot; + id + &quot;: end date must be after start date&quot;); ok = false; }</span>
+            // dependencies: comma separated ids (optional)
+<span class="nc" id="L211">            String deps = t.getDependencies();</span>
+<span class="nc bnc" id="L212" title="All 4 branches missed.">            if (deps != null &amp;&amp; !deps.trim().isEmpty()) {</span>
+<span class="nc" id="L213">                String[] parts = deps.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">                for (String p : parts) {</span>
+<span class="nc" id="L215">                    p = p.trim();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">                    if (p.isEmpty()) continue;</span>
+                    try {
+<span class="nc" id="L218">                        int did = Integer.parseInt(p);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">                        if (!ids.contains(did)) {</span>
+<span class="nc" id="L220">                            vr.errors.add(&quot;Task &quot; + id + &quot;: dependency '&quot; + did + &quot;' not found among tasks&quot;);</span>
+<span class="nc" id="L221">                            ok = false;</span>
+                        }
+<span class="nc" id="L223">                    } catch (NumberFormatException ex) {</span>
+<span class="nc" id="L224">                        vr.errors.add(&quot;Task &quot; + id + &quot;: invalid dependency token '&quot; + p + &quot;'&quot;); ok = false;</span>
+<span class="nc" id="L225">                    }</span>
+                }
+            }
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if (ok) vr.validTaskIds.add(id); else vr.invalidTaskIds.add(id);</span>
+<span class="nc" id="L229">        }</span>
+<span class="nc" id="L230">        return vr;</span>
+    }
+
+    // Validate resources: check allocations reference existing tasks and loads are numbers
+    public static ValidationResult validateResources(List&lt;model.Resource&gt; resources, Set&lt;Integer&gt; knownTaskIds) {
+<span class="nc" id="L235">        ValidationResult vr = new ValidationResult();</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (resources == null) return vr;</span>
+<span class="nc" id="L237">        int idx = 0;</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">        for (model.Resource r : resources) {</span>
+<span class="nc" id="L239">            idx++;</span>
+<span class="nc bnc" id="L240" title="All 4 branches missed.">            if (r.getName() == null || r.getName().trim().isEmpty()) {</span>
+<span class="nc" id="L241">                vr.errors.add(&quot;Resource #&quot; + idx + &quot;: name is empty&quot;);</span>
+            }
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            for (model.Allocation a : r.getAllocations()) {</span>
+<span class="nc" id="L244">                int tid = a.getTaskId();</span>
+<span class="nc" id="L245">                int load = a.getLoad();</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">                if (!knownTaskIds.contains(tid)) {</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">                    vr.errors.add(&quot;Resource '&quot; + (r.getName()==null?&quot;&lt;unnamed&gt;&quot;:r.getName()) + &quot;' allocation: task id &quot; + tid + &quot; not found&quot;);</span>
+                }
+<span class="nc bnc" id="L249" title="All 4 branches missed.">                if (load &lt; 0 || load &gt; 1000) {</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">                    vr.errors.add(&quot;Resource '&quot; + (r.getName()==null?&quot;&lt;unnamed&gt;&quot;:r.getName()) + &quot;' allocation: load &quot; + load + &quot; seems invalid&quot;);</span>
+                }
+<span class="nc" id="L252">            }</span>
+<span class="nc" id="L253">        }</span>
+<span class="nc" id="L254">        return vr;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Project.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">model</a> &gt; <span class="el_source">Project.java</span></div><h1>Project.java</h1><pre class="source lang-java linenums">package model;
+
+import java.util.List;
+import java.util.ArrayList;
+
+public class Project {
+    private String name;
+    private List&lt;Task&gt; tasks;
+    private List&lt;Resource&gt; resources;
+
+    private String tasksFilePath;
+    private String resourcesFilePath;
+    
+<span class="fc" id="L14">    public Project(String name) {</span>
+<span class="fc" id="L15">        this.name = name;</span>
+<span class="fc" id="L16">        this.tasks = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc" id="L17">        this.resources = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc" id="L18">    }</span>
+
+    // --- Getters &amp; Setters ---
+<span class="nc" id="L21">    public String getName() { return name; }</span>
+<span class="nc" id="L22">    public void setName(String name) { this.name = name; }</span>
+
+<span class="fc" id="L24">    public List&lt;Task&gt; getTasks() { return tasks; }</span>
+<span class="fc" id="L25">    public void setTasks(List&lt;Task&gt; tasks) { this.tasks = tasks; }</span>
+
+<span class="nc" id="L27">    public List&lt;Resource&gt; getResources() { return resources; }</span>
+<span class="fc" id="L28">    public void setResources(List&lt;Resource&gt; resources) { this.resources = resources; }</span>
+
+<span class="nc" id="L30">    public String getTasksFilePath() { return tasksFilePath; }</span>
+<span class="nc" id="L31">    public void setTasksFilePath(String path) { this.tasksFilePath = path; }</span>
+
+<span class="nc" id="L33">    public String getResourcesFilePath() { return resourcesFilePath; }</span>
+<span class="nc" id="L34">    public void setResourcesFilePath(String path) { this.resourcesFilePath = path; }</span>
+
+    // ===== TEST METHODS FOR OVERLAPPING TASKS &amp; COMPLETION TIME =====
+
+    /**
+     * Finds all overlapping tasks in the project using Task.overlapsWith()
+     * @return List of overlap descriptions
+     */
+    public List&lt;String&gt; findOverlappingTasks() {
+<span class="fc" id="L43">        List&lt;String&gt; overlaps = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L44">        List&lt;Task&gt; tasks = getTasks();</span>
+        
+<span class="pc bpc" id="L46" title="2 of 4 branches missed.">        if (tasks == null || tasks.size() &lt; 2) {</span>
+<span class="nc" id="L47">            return overlaps;</span>
+        }
+        
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        for (int i = 0; i &lt; tasks.size(); i++) {</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">            for (int j = i + 1; j &lt; tasks.size(); j++) {</span>
+<span class="fc" id="L52">                Task task1 = tasks.get(i);</span>
+<span class="fc" id="L53">                Task task2 = tasks.get(j);</span>
+                
+<span class="fc bfc" id="L55" title="All 2 branches covered.">                if (task1.overlapsWith(task2)) {</span>
+<span class="fc" id="L56">                    overlaps.add(String.format(&quot;OVERLAP: '%s' (%s-%s) and '%s' (%s-%s) overlap&quot;,</span>
+<span class="fc" id="L57">                        task1.getTitle(), task1.getStart(), task1.getEnd(),</span>
+<span class="fc" id="L58">                        task2.getTitle(), task2.getStart(), task2.getEnd()));</span>
+                }
+            }
+        }
+        
+<span class="fc" id="L63">        return overlaps;</span>
+    }
+    
+    /**
+     * Calculates the project completion time (latest end date of all tasks)
+     * @return Latest end date as string, or null if no tasks
+     */
+    public String calculateProjectCompletionTime() {
+<span class="fc" id="L71">        List&lt;Task&gt; tasks = getTasks();</span>
+<span class="pc bpc" id="L72" title="1 of 4 branches missed.">        if (tasks == null || tasks.isEmpty()) {</span>
+<span class="fc" id="L73">            return null;</span>
+        }
+        
+<span class="fc" id="L76">        String latestEnd = tasks.get(0).getEnd();</span>
+        
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        for (int i = 1; i &lt; tasks.size(); i++) {</span>
+<span class="fc" id="L79">            String currentEnd = tasks.get(i).getEnd();</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">            if (currentEnd.compareTo(latestEnd) &gt; 0) {</span>
+<span class="fc" id="L81">                latestEnd = currentEnd;</span>
+            }
+        }
+        
+<span class="fc" id="L85">        return latestEnd;</span>
+    }
+    
+    /**
+     * Enhanced completion time calculation that considers dependencies
+     * @return Project completion date considering task dependencies
+     */
+    public String calculateCriticalPathCompletionTime() {
+<span class="nc" id="L93">        List&lt;Task&gt; tasks = getTasks();</span>
+<span class="nc bnc" id="L94" title="All 4 branches missed.">        if (tasks == null || tasks.isEmpty()) {</span>
+<span class="nc" id="L95">            return null;</span>
+        }
+        
+        // For now, using simple latest end date
+        // You can enhance this later to consider dependency chains
+<span class="nc" id="L100">        return calculateProjectCompletionTime();</span>
+    }
+    
+    /**
+     * Finds resource overallocations during overlapping task periods
+     * @return List of overallocation warnings
+     */
+    public List&lt;String&gt; findResourceOverallocations() {
+<span class="nc" id="L108">        List&lt;String&gt; overallocations = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L110" title="All 4 branches missed.">        if (resources == null || tasks == null) {</span>
+<span class="nc" id="L111">            return overallocations;</span>
+        }
+        
+        // Check each resource's allocations during overlapping periods
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        for (Resource resource : resources) {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (resource.getAllocations() != null) {</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                for (Allocation alloc1 : resource.getAllocations()) {</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                    for (Allocation alloc2 : resource.getAllocations()) {</span>
+<span class="nc bnc" id="L119" title="All 4 branches missed.">                        if (alloc1 != alloc2 &amp;&amp; areTasksOverlapping(alloc1.getTaskId(), alloc2.getTaskId())) {</span>
+<span class="nc" id="L120">                            int totalLoad = alloc1.getLoad() + alloc2.getLoad();</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">                            if (totalLoad &gt; 100) {</span>
+<span class="nc" id="L122">                                overallocations.add(String.format(</span>
+                                    &quot;OVERALLOCATION: %s is allocated %d%% during overlapping tasks %d and %d&quot;,
+<span class="nc" id="L124">                                    resource.getName(), totalLoad, alloc1.getTaskId(), alloc2.getTaskId()));</span>
+                            }
+                        }
+<span class="nc" id="L127">                    }</span>
+<span class="nc" id="L128">                }</span>
+            }
+<span class="nc" id="L130">        }</span>
+        
+<span class="nc" id="L132">        return overallocations;</span>
+    }
+    
+    private boolean areTasksOverlapping(int taskId1, int taskId2) {
+<span class="nc" id="L136">        Task task1 = findTaskById(taskId1);</span>
+<span class="nc" id="L137">        Task task2 = findTaskById(taskId2);</span>
+        
+<span class="nc bnc" id="L139" title="All 4 branches missed.">        if (task1 != null &amp;&amp; task2 != null) {</span>
+<span class="nc" id="L140">            return task1.overlapsWith(task2);</span>
+        }
+        
+<span class="nc" id="L143">        return false;</span>
+    }
+    
+    private Task findTaskById(int taskId) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (tasks != null) {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            for (Task task : tasks) {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (task.getId() == taskId) {</span>
+<span class="nc" id="L150">                    return task;</span>
+                }
+<span class="nc" id="L152">            }</span>
+        }
+<span class="nc" id="L154">        return null;</span>
+    }
+
+    /**
+     * Utility method to check if a specific task overlaps with any other tasks
+     * @param taskId The task ID to check
+     * @return List of overlapping task descriptions
+     */
+    public List&lt;String&gt; findOverlapsForTask(int taskId) {
+<span class="nc" id="L163">        List&lt;String&gt; overlaps = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L164">        Task targetTask = findTaskById(taskId);</span>
+        
+<span class="nc bnc" id="L166" title="All 4 branches missed.">        if (targetTask == null || tasks == null) {</span>
+<span class="nc" id="L167">            return overlaps;</span>
+        }
+        
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        for (Task otherTask : tasks) {</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">            if (otherTask.getId() != taskId &amp;&amp; targetTask.overlapsWith(otherTask)) {</span>
+<span class="nc" id="L172">                overlaps.add(String.format(&quot;Task %d '%s' overlaps with Task %d '%s'&quot;,</span>
+<span class="nc" id="L173">                    taskId, targetTask.getTitle(), otherTask.getId(), otherTask.getTitle()));</span>
+            }
+<span class="nc" id="L175">        }</span>
+        
+<span class="nc" id="L177">        return overlaps;</span>
+    }
+
+    /**
+     * Gets the earliest start date in the project
+     * @return Earliest start date or null if no tasks
+     */
+    public String getProjectStartDate() {
+<span class="nc" id="L185">        List&lt;Task&gt; tasks = getTasks();</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">        if (tasks == null || tasks.isEmpty()) {</span>
+<span class="nc" id="L187">            return null;</span>
+        }
+        
+<span class="nc" id="L190">        String earliestStart = tasks.get(0).getStart();</span>
+        
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        for (int i = 1; i &lt; tasks.size(); i++) {</span>
+<span class="nc" id="L193">            String currentStart = tasks.get(i).getStart();</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (currentStart.compareTo(earliestStart) &lt; 0) {</span>
+<span class="nc" id="L195">                earliestStart = currentStart;</span>
+            }
+        }
+        
+<span class="nc" id="L199">        return earliestStart;</span>
+    }
+
+    /**
+     * Calculates project duration in days (simplified)
+     * @return Number of days between start and completion, or -1 if cannot calculate
+     */
+    public int calculateProjectDuration() {
+<span class="nc" id="L207">        String start = getProjectStartDate();</span>
+<span class="nc" id="L208">        String end = calculateProjectCompletionTime();</span>
+        
+<span class="nc bnc" id="L210" title="All 4 branches missed.">        if (start == null || end == null) {</span>
+<span class="nc" id="L211">            return -1;</span>
+        }
+        
+        // Simple calculation - in real implementation, you'd parse dates and calculate difference
+        try {
+            // This is a simplified version - you'd need proper date parsing
+<span class="nc" id="L217">            return Math.abs(Integer.parseInt(end.replace(&quot;-&quot;, &quot;&quot;)) - Integer.parseInt(start.replace(&quot;-&quot;, &quot;&quot;)));</span>
+<span class="nc" id="L218">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L219">            return -1;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

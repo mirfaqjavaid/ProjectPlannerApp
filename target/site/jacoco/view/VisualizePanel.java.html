@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VisualizePanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">view</a> &gt; <span class="el_source">VisualizePanel.java</span></div><h1>VisualizePanel.java</h1><pre class="source lang-java linenums">package view;
+
+import javax.swing.*;
+import java.awt.*;
+import model.Project;
+
+/**
+ * VisualizePanel now delegates drawing to GanttChartPanel which renders a
+ * time-based Gantt chart. The panel recreates the chart when Refresh is
+ * clicked so it picks up the latest tasks from the Project.
+ */
+public class VisualizePanel extends JPanel {
+    private Project project;
+    private JScrollPane scrollPane;
+    private GanttChartPanel ganttPanel;
+
+<span class="nc" id="L17">    public VisualizePanel(Project project) {</span>
+<span class="nc" id="L18">        this.project = project;</span>
+<span class="nc" id="L19">        setLayout(new BorderLayout());</span>
+
+<span class="nc" id="L21">        JButton refresh = new JButton(&quot;Refresh Chart&quot;);</span>
+<span class="nc" id="L22">        add(refresh, BorderLayout.NORTH);</span>
+
+        // initial chart
+<span class="nc bnc" id="L25" title="All 2 branches missed.">        ganttPanel = new GanttChartPanel(project == null ? null : project.getTasks());</span>
+<span class="nc" id="L26">        scrollPane = new JScrollPane(ganttPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);</span>
+<span class="nc" id="L27">        add(scrollPane, BorderLayout.CENTER);</span>
+
+<span class="nc" id="L29">        refresh.addActionListener(e -&gt; {</span>
+            // recreate the gantt panel so it reads current tasks
+<span class="nc bnc" id="L31" title="All 2 branches missed.">            ganttPanel = new GanttChartPanel(project == null ? null : project.getTasks());</span>
+<span class="nc" id="L32">            scrollPane.setViewportView(ganttPanel);</span>
+<span class="nc" id="L33">            revalidate();</span>
+<span class="nc" id="L34">            repaint();</span>
+<span class="nc" id="L35">        });</span>
+<span class="nc" id="L36">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileProjectStorage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">model.storage</a> &gt; <span class="el_source">FileProjectStorage.java</span></div><h1>FileProjectStorage.java</h1><pre class="source lang-java linenums">package model.storage;
+
+import java.io.*;
+import model.*;
+import java.util.*;
+
+<span class="nc" id="L7">public class FileProjectStorage implements ProjectStorage {</span>
+    @Override
+    public void saveProject(Project project, String filename) throws Exception {
+<span class="nc" id="L10">        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename))) {</span>
+<span class="nc" id="L11">            out.writeObject(project);</span>
+        }
+<span class="nc" id="L13">    }</span>
+
+    @Override
+    public Project loadProject(String filename) throws Exception {
+<span class="nc" id="L17">        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename))) {</span>
+<span class="nc" id="L18">            return (Project) in.readObject();</span>
+        }
+    }
+
+    @Override
+    public List&lt;Project&gt; loadAllProjects(String directory) throws Exception {
+<span class="nc" id="L24">        List&lt;Project&gt; projects = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L25">        File dir = new File(directory);</span>
+<span class="nc bnc" id="L26" title="All 4 branches missed.">        if (dir.exists() &amp;&amp; dir.isDirectory()) {</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">            for (File file : dir.listFiles()) {</span>
+<span class="nc bnc" id="L28" title="All 2 branches missed.">                if (file.getName().endsWith(&quot;.dat&quot;)) {</span>
+<span class="nc" id="L29">                    projects.add(loadProject(file.getAbsolutePath()));</span>
+                }
+            }
+        }
+<span class="nc" id="L33">        return projects;</span>
+    }
+
+    @Override
+    public void saveProjectAsText(Project project, File file) throws IOException {
+<span class="nc" id="L38">        try (PrintWriter out = new PrintWriter(file)) {</span>
+            // Save tasks
+<span class="nc bnc" id="L40" title="All 2 branches missed.">            for (Task t : project.getTasks()) {</span>
+<span class="nc" id="L41">                out.println(t.getId() + &quot;, &quot; + t.getTitle() + &quot;, &quot; + t.getStart() + &quot;, &quot; + t.getEnd() + </span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">                    (t.getDependencies().isEmpty() ? &quot;&quot; : &quot;, &quot; + t.getDependencies()));</span>
+<span class="nc" id="L43">            }</span>
+<span class="nc" id="L44">            out.println(&quot;---RESOURCES---&quot;);</span>
+            // Save resources
+<span class="nc bnc" id="L46" title="All 2 branches missed.">            for (Resource r : project.getResources()) {</span>
+<span class="nc" id="L47">                StringBuilder allocStr = new StringBuilder();</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">                for (Allocation a : r.getAllocations()) {</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">                    if (allocStr.length() &gt; 0) allocStr.append(&quot;, &quot;);</span>
+<span class="nc" id="L50">                    allocStr.append(a.getTaskId()).append(&quot;:&quot;).append(a.getLoad());</span>
+<span class="nc" id="L51">                }</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">                out.println(r.getName() + (allocStr.length() &gt; 0 ? &quot;, &quot; + allocStr.toString() : &quot;&quot;));</span>
+<span class="nc" id="L53">            }</span>
+        }
+<span class="nc" id="L55">    }</span>
+
+    @Override
+    public Project loadProjectFromText(File file) throws IOException {
+<span class="nc" id="L59">        Project project = new Project(file.getName().replaceFirst(&quot;\\.txt$&quot;, &quot;&quot;));</span>
+<span class="nc" id="L60">        List&lt;Task&gt; tasks = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L61">        List&lt;Resource&gt; resources = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L63">        try (BufferedReader br = new BufferedReader(new FileReader(file))) {</span>
+            String line;
+<span class="nc" id="L65">            boolean inResourcesSection = false;</span>
+            
+<span class="nc bnc" id="L67" title="All 2 branches missed.">            while ((line = br.readLine()) != null) {</span>
+<span class="nc" id="L68">                line = line.trim();</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">                if (line.isEmpty()) continue;</span>
+                
+<span class="nc bnc" id="L71" title="All 2 branches missed.">                if (line.equals(&quot;---RESOURCES---&quot;)) {</span>
+<span class="nc" id="L72">                    inResourcesSection = true;</span>
+<span class="nc" id="L73">                    continue;</span>
+                }
+                
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                if (!inResourcesSection) {</span>
+                    // Parse task
+<span class="nc" id="L78">                    String[] parts = line.split(&quot;,&quot;, -1);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">                    if (parts.length &gt;= 4) {</span>
+                        try {
+<span class="nc" id="L81">                            int id = Integer.parseInt(parts[0].trim());</span>
+<span class="nc" id="L82">                            String title = parts[1].trim();</span>
+<span class="nc" id="L83">                            String start = parts[2].trim();</span>
+<span class="nc" id="L84">                            String end = parts[3].trim();</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">                            String deps = parts.length &gt; 4 ? parts[4].trim() : &quot;&quot;;</span>
+<span class="nc" id="L86">                            Task t = new Task(id, title, start, end, deps);</span>
+<span class="nc" id="L87">                            tasks.add(t);</span>
+<span class="nc" id="L88">                        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L89">                            System.err.println(&quot;Invalid task ID in line: &quot; + line);</span>
+<span class="nc" id="L90">                        }</span>
+                    }
+<span class="nc" id="L92">                } else {</span>
+                    // Parse resource
+<span class="nc" id="L94">                    String[] parts = line.split(&quot;,&quot;, -1);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                    if (parts.length &gt;= 1) {</span>
+<span class="nc" id="L96">                        String name = parts[0].trim();</span>
+<span class="nc" id="L97">                        List&lt;Allocation&gt; allocations = new ArrayList&lt;&gt;();</span>
+                        
+<span class="nc bnc" id="L99" title="All 2 branches missed.">                        for (int i = 1; i &lt; parts.length; i++) {</span>
+<span class="nc" id="L100">                            String allocStr = parts[i].trim();</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">                            if (!allocStr.isEmpty()) {</span>
+<span class="nc" id="L102">                                String[] pair = allocStr.split(&quot;:&quot;);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">                                if (pair.length == 2) {</span>
+                                    try {
+<span class="nc" id="L105">                                        int taskId = Integer.parseInt(pair[0].trim());</span>
+<span class="nc" id="L106">                                        int load = Integer.parseInt(pair[1].trim());</span>
+<span class="nc" id="L107">                                        allocations.add(new Allocation(taskId, load));</span>
+<span class="nc" id="L108">                                    } catch (NumberFormatException e) {</span>
+<span class="nc" id="L109">                                        System.err.println(&quot;Invalid allocation format: &quot; + allocStr);</span>
+<span class="nc" id="L110">                                    }</span>
+                                }
+                            }
+                        }
+<span class="nc" id="L114">                        resources.add(new Resource(name, allocations));</span>
+                    }
+<span class="nc" id="L116">                }</span>
+            }
+        }
+        
+<span class="nc" id="L120">        project.setTasks(tasks);</span>
+<span class="nc" id="L121">        project.setResources(resources);</span>
+<span class="nc" id="L122">        return project;</span>
+    }
+
+    public void saveTasksToFile(List&lt;Task&gt; tasks, String filePath) throws IOException {
+<span class="nc" id="L126">        try (PrintWriter out = new PrintWriter(filePath)) {</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            for (Task t : tasks) {</span>
+<span class="nc" id="L128">                out.println(t.getId() + &quot;, &quot; + t.getTitle() + &quot;, &quot; + t.getStart() + &quot;, &quot; + t.getEnd() + </span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                    (t.getDependencies().isEmpty() ? &quot;&quot; : &quot;, &quot; + t.getDependencies()));</span>
+<span class="nc" id="L130">            }</span>
+        }
+<span class="nc" id="L132">    }</span>
+
+    public void saveResourcesToFile(List&lt;Resource&gt; resources, String filePath) throws IOException {
+<span class="nc" id="L135">        try (PrintWriter out = new PrintWriter(filePath)) {</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            for (Resource r : resources) {</span>
+<span class="nc" id="L137">                StringBuilder allocStr = new StringBuilder();</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">                for (Allocation a : r.getAllocations()) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                    if (allocStr.length() &gt; 0) allocStr.append(&quot;, &quot;);</span>
+<span class="nc" id="L140">                    allocStr.append(a.getTaskId()).append(&quot;:&quot;).append(a.getLoad());</span>
+<span class="nc" id="L141">                }</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">                out.println(r.getName() + (allocStr.length() &gt; 0 ? &quot;, &quot; + allocStr.toString() : &quot;&quot;));</span>
+<span class="nc" id="L143">            }</span>
+        }
+<span class="nc" id="L145">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

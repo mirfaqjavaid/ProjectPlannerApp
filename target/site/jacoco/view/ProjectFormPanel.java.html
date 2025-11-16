@@ -1,0 +1,939 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProjectFormPanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">view</a> &gt; <span class="el_source">ProjectFormPanel.java</span></div><h1>ProjectFormPanel.java</h1><pre class="source lang-java linenums">package view;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import controller.FileController;
+import java.io.File;
+import model.Allocation;
+import model.Project;
+import model.Resource;
+import model.Task;
+import model.storage.DatabaseInitializer;
+import model.storage.FileProjectStorage;
+import model.storage.SqliteDatabaseStorage;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class ProjectFormPanel extends JPanel {
+    private final Project project;
+    private JTable taskTable, resourceTable;
+    private JButton addTaskBtn, addResourceBtn, saveBtn, newProjectBtn, uploadTasksBtn, uploadResourcesBtn;
+    private JButton editSelectedTaskBtn, deleteSelectedTaskBtn, editSelectedResourceBtn, deleteSelectedResourceBtn;
+    private JComboBox&lt;String&gt; storageTypeCombo;
+    private FileProjectStorage fileStorage;
+    private SqliteDatabaseStorage databaseStorage;
+<span class="nc" id="L28">    private boolean useDatabaseStorage = false;</span>
+
+<span class="nc" id="L30">    public ProjectFormPanel(Project project) {</span>
+<span class="nc" id="L31">        this.project = project;</span>
+<span class="nc" id="L32">        initializeStorage();</span>
+<span class="nc" id="L33">        initializeUI();</span>
+<span class="nc" id="L34">    }</span>
+
+    private void initializeStorage() {
+<span class="nc" id="L37">        DatabaseInitializer.initializeDatabase();</span>
+<span class="nc" id="L38">        this.fileStorage = new FileProjectStorage();</span>
+<span class="nc" id="L39">        this.databaseStorage = new SqliteDatabaseStorage();</span>
+<span class="nc" id="L40">    }</span>
+
+    private void initializeUI() {
+<span class="nc" id="L43">        setLayout(new BorderLayout(10, 10));</span>
+<span class="nc" id="L44">        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));</span>
+
+        // --- Top controls panel ---
+<span class="nc" id="L47">        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));</span>
+<span class="nc" id="L48">        controlPanel.setBorder(BorderFactory.createTitledBorder(&quot;Project Controls&quot;));</span>
+        
+        // Storage selection
+<span class="nc" id="L51">        controlPanel.add(new JLabel(&quot;Storage:&quot;));</span>
+<span class="nc" id="L52">        storageTypeCombo = new JComboBox&lt;&gt;(new String[]{&quot;File Storage&quot;, &quot;Database Storage&quot;});</span>
+<span class="nc" id="L53">        storageTypeCombo.addActionListener(e -&gt; {</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            useDatabaseStorage = storageTypeCombo.getSelectedIndex() == 1;</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            if (useDatabaseStorage) {</span>
+<span class="nc" id="L56">                loadProjectFromDatabase();</span>
+            }
+<span class="nc" id="L58">        });</span>
+<span class="nc" id="L59">        controlPanel.add(storageTypeCombo);</span>
+<span class="nc" id="L60">        controlPanel.add(Box.createHorizontalStrut(20));</span>
+
+        // Upload buttons
+<span class="nc" id="L63">        uploadTasksBtn = new JButton(&quot;Upload Tasks&quot;);</span>
+<span class="nc" id="L64">        uploadResourcesBtn = new JButton(&quot;Upload Resources&quot;);</span>
+<span class="nc" id="L65">        controlPanel.add(uploadTasksBtn);</span>
+<span class="nc" id="L66">        controlPanel.add(uploadResourcesBtn);</span>
+<span class="nc" id="L67">        controlPanel.add(Box.createHorizontalStrut(20));</span>
+
+        // Basic operation buttons
+<span class="nc" id="L70">        addTaskBtn = new JButton(&quot;Add Task&quot;);</span>
+<span class="nc" id="L71">        addResourceBtn = new JButton(&quot;Add Resource&quot;);</span>
+<span class="nc" id="L72">        saveBtn = new JButton(&quot;Save&quot;);</span>
+<span class="nc" id="L73">        newProjectBtn = new JButton(&quot;New Project&quot;);</span>
+        
+<span class="nc" id="L75">        controlPanel.add(addTaskBtn);</span>
+<span class="nc" id="L76">        controlPanel.add(addResourceBtn);</span>
+<span class="nc" id="L77">        controlPanel.add(saveBtn);</span>
+<span class="nc" id="L78">        controlPanel.add(newProjectBtn);</span>
+
+<span class="nc" id="L80">        add(controlPanel, BorderLayout.NORTH);</span>
+
+        // --- Tables panel ---
+<span class="nc" id="L83">        JPanel tablesPanel = new JPanel(new GridLayout(2, 1, 10, 10));</span>
+
+        // Create tables without edit/delete columns
+<span class="nc" id="L86">        taskTable = createTaskTable();</span>
+<span class="nc" id="L87">        resourceTable = createResourceTable();</span>
+
+<span class="nc" id="L89">        JScrollPane taskScroll = new JScrollPane(taskTable);</span>
+<span class="nc" id="L90">        JScrollPane resourceScroll = new JScrollPane(resourceTable);</span>
+
+<span class="nc" id="L92">        taskScroll.setBorder(BorderFactory.createTitledBorder(&quot;Tasks&quot;));</span>
+<span class="nc" id="L93">        resourceScroll.setBorder(BorderFactory.createTitledBorder(&quot;Resources&quot;));</span>
+
+<span class="nc" id="L95">        tablesPanel.add(taskScroll);</span>
+<span class="nc" id="L96">        tablesPanel.add(resourceScroll);</span>
+
+<span class="nc" id="L98">        add(tablesPanel, BorderLayout.CENTER);</span>
+
+        // --- Action buttons panel (for Edit/Delete operations) ---
+<span class="nc" id="L101">        JPanel actionPanel = new JPanel(new GridLayout(2, 1, 5, 5));</span>
+        
+        // Task actions panel
+<span class="nc" id="L104">        JPanel taskActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));</span>
+<span class="nc" id="L105">        taskActionPanel.setBorder(BorderFactory.createTitledBorder(&quot;Task Operations&quot;));</span>
+        
+<span class="nc" id="L107">        editSelectedTaskBtn = new JButton(&quot;Edit Selected Task&quot;);</span>
+<span class="nc" id="L108">        deleteSelectedTaskBtn = new JButton(&quot;Delete Selected Task&quot;);</span>
+        
+        // Style the buttons
+<span class="nc" id="L111">        editSelectedTaskBtn.setBackground(new Color(255, 165, 0));</span>
+<span class="nc" id="L112">        editSelectedTaskBtn.setForeground(Color.WHITE);</span>
+<span class="nc" id="L113">        deleteSelectedTaskBtn.setBackground(new Color(220, 20, 60));</span>
+<span class="nc" id="L114">        deleteSelectedTaskBtn.setForeground(Color.WHITE);</span>
+        
+<span class="nc" id="L116">        editSelectedTaskBtn.setEnabled(false);</span>
+<span class="nc" id="L117">        deleteSelectedTaskBtn.setEnabled(false);</span>
+        
+<span class="nc" id="L119">        taskActionPanel.add(editSelectedTaskBtn);</span>
+<span class="nc" id="L120">        taskActionPanel.add(deleteSelectedTaskBtn);</span>
+        
+        // Resource actions panel
+<span class="nc" id="L123">        JPanel resourceActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));</span>
+<span class="nc" id="L124">        resourceActionPanel.setBorder(BorderFactory.createTitledBorder(&quot;Resource Operations&quot;));</span>
+        
+<span class="nc" id="L126">        editSelectedResourceBtn = new JButton(&quot;Edit Selected Resource&quot;);</span>
+<span class="nc" id="L127">        deleteSelectedResourceBtn = new JButton(&quot;Delete Selected Resource&quot;);</span>
+        
+        // Style the buttons
+<span class="nc" id="L130">        editSelectedResourceBtn.setBackground(new Color(255, 165, 0));</span>
+<span class="nc" id="L131">        editSelectedResourceBtn.setForeground(Color.WHITE);</span>
+<span class="nc" id="L132">        deleteSelectedResourceBtn.setBackground(new Color(220, 20, 60));</span>
+<span class="nc" id="L133">        deleteSelectedResourceBtn.setForeground(Color.WHITE);</span>
+        
+<span class="nc" id="L135">        editSelectedResourceBtn.setEnabled(false);</span>
+<span class="nc" id="L136">        deleteSelectedResourceBtn.setEnabled(false);</span>
+        
+<span class="nc" id="L138">        resourceActionPanel.add(editSelectedResourceBtn);</span>
+<span class="nc" id="L139">        resourceActionPanel.add(deleteSelectedResourceBtn);</span>
+        
+<span class="nc" id="L141">        actionPanel.add(taskActionPanel);</span>
+<span class="nc" id="L142">        actionPanel.add(resourceActionPanel);</span>
+
+<span class="nc" id="L144">        add(actionPanel, BorderLayout.SOUTH);</span>
+
+        // --- Add selection listeners to tables ---
+<span class="nc" id="L147">        taskTable.getSelectionModel().addListSelectionListener(e -&gt; {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            if (!e.getValueIsAdjusting()) {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                boolean hasSelection = taskTable.getSelectedRow() &gt;= 0;</span>
+<span class="nc" id="L150">                editSelectedTaskBtn.setEnabled(hasSelection);</span>
+<span class="nc" id="L151">                deleteSelectedTaskBtn.setEnabled(hasSelection);</span>
+            }
+<span class="nc" id="L153">        });</span>
+
+<span class="nc" id="L155">        resourceTable.getSelectionModel().addListSelectionListener(e -&gt; {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (!e.getValueIsAdjusting()) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                boolean hasSelection = resourceTable.getSelectedRow() &gt;= 0;</span>
+<span class="nc" id="L158">                editSelectedResourceBtn.setEnabled(hasSelection);</span>
+<span class="nc" id="L159">                deleteSelectedResourceBtn.setEnabled(hasSelection);</span>
+            }
+<span class="nc" id="L161">        });</span>
+
+        // --- Button Actions ---
+<span class="nc" id="L164">        addTaskBtn.addActionListener(e -&gt; showAddTaskDialog());</span>
+<span class="nc" id="L165">        addResourceBtn.addActionListener(e -&gt; showAddResourceDialog());</span>
+<span class="nc" id="L166">        saveBtn.addActionListener(e -&gt; saveProject());</span>
+<span class="nc" id="L167">        newProjectBtn.addActionListener(e -&gt; createOrLoadNewProject());</span>
+<span class="nc" id="L168">        uploadTasksBtn.addActionListener(e -&gt; handleFileUpload(&quot;tasks&quot;));</span>
+<span class="nc" id="L169">        uploadResourcesBtn.addActionListener(e -&gt; handleFileUpload(&quot;resources&quot;));</span>
+        
+        // Edit/Delete button actions
+<span class="nc" id="L172">        editSelectedTaskBtn.addActionListener(e -&gt; editSelectedTask());</span>
+<span class="nc" id="L173">        deleteSelectedTaskBtn.addActionListener(e -&gt; deleteSelectedTask());</span>
+<span class="nc" id="L174">        editSelectedResourceBtn.addActionListener(e -&gt; editSelectedResource());</span>
+<span class="nc" id="L175">        deleteSelectedResourceBtn.addActionListener(e -&gt; deleteSelectedResource());</span>
+
+<span class="nc" id="L177">        JButton showTasksBtn = new JButton(&quot;Show Task Table&quot;);</span>
+<span class="nc" id="L178">        controlPanel.add(showTasksBtn);</span>
+<span class="nc" id="L179">        showTasksBtn.addActionListener(e -&gt; showFullTaskTableDialog());</span>
+
+        // Load initial data
+<span class="nc" id="L182">        refreshTaskTable();</span>
+<span class="nc" id="L183">        refreshResourceTable();</span>
+<span class="nc" id="L184">    }</span>
+
+    private JTable createTaskTable() {
+<span class="nc" id="L187">        String[] columns = {&quot;ID&quot;, &quot;Title&quot;, &quot;Start&quot;, &quot;End&quot;, &quot;Dependencies&quot;};</span>
+<span class="nc" id="L188">        DefaultTableModel model = new DefaultTableModel(columns, 0) {</span>
+            @Override
+            public boolean isCellEditable(int row, int column) {
+<span class="nc" id="L191">                return false;</span>
+            }
+        };
+
+<span class="nc" id="L195">        JTable table = new JTable(model);</span>
+<span class="nc" id="L196">        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);</span>
+<span class="nc" id="L197">        table.setRowHeight(25);</span>
+        
+        // Set column widths
+<span class="nc" id="L200">        table.getColumnModel().getColumn(0).setPreferredWidth(50);</span>
+<span class="nc" id="L201">        table.getColumnModel().getColumn(1).setPreferredWidth(200);</span>
+<span class="nc" id="L202">        table.getColumnModel().getColumn(2).setPreferredWidth(100);</span>
+<span class="nc" id="L203">        table.getColumnModel().getColumn(3).setPreferredWidth(100);</span>
+<span class="nc" id="L204">        table.getColumnModel().getColumn(4).setPreferredWidth(150);</span>
+
+<span class="nc" id="L206">        return table;</span>
+    }
+
+    private JTable createResourceTable() {
+<span class="nc" id="L210">        String[] columns = {&quot;Name&quot;, &quot;Allocations&quot;};</span>
+<span class="nc" id="L211">        DefaultTableModel model = new DefaultTableModel(columns, 0) {</span>
+            @Override
+            public boolean isCellEditable(int row, int column) {
+<span class="nc" id="L214">                return false;</span>
+            }
+        };
+
+<span class="nc" id="L218">        JTable table = new JTable(model);</span>
+<span class="nc" id="L219">        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);</span>
+<span class="nc" id="L220">        table.setRowHeight(25);</span>
+        
+        // Set column widths
+<span class="nc" id="L223">        table.getColumnModel().getColumn(0).setPreferredWidth(150);</span>
+<span class="nc" id="L224">        table.getColumnModel().getColumn(1).setPreferredWidth(300);</span>
+
+<span class="nc" id="L226">        return table;</span>
+    }
+
+    // === ADD TASK FUNCTIONALITY ===
+    private void showAddTaskDialog() {
+<span class="nc" id="L231">        JTextField idField = new JTextField();</span>
+<span class="nc" id="L232">        JTextField titleField = new JTextField();</span>
+<span class="nc" id="L233">        JTextField startField = new JTextField();</span>
+<span class="nc" id="L234">        JTextField endField = new JTextField();</span>
+<span class="nc" id="L235">        JTextField depsField = new JTextField();</span>
+
+<span class="nc" id="L237">        Object[] fields = {</span>
+            &quot;ID (int):&quot;, idField,
+            &quot;Title:&quot;, titleField,
+            &quot;Start (yyyy-MM-dd):&quot;, startField,
+            &quot;End (yyyy-MM-dd):&quot;, endField,
+            &quot;Dependencies (comma ids):&quot;, depsField
+        };
+<span class="nc" id="L244">        int res = JOptionPane.showConfirmDialog(this, fields, &quot;Add Task&quot;, JOptionPane.OK_CANCEL_OPTION);</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (res == JOptionPane.OK_OPTION) {</span>
+            try {
+<span class="nc" id="L247">                int id = Integer.parseInt(idField.getText().trim());</span>
+<span class="nc" id="L248">                String title = titleField.getText().trim();</span>
+<span class="nc" id="L249">                String start = startField.getText().trim();</span>
+<span class="nc" id="L250">                String end = endField.getText().trim();</span>
+<span class="nc" id="L251">                String deps = depsField.getText().trim();</span>
+
+                // Validation
+<span class="nc bnc" id="L254" title="All 6 branches missed.">                if (title.isEmpty() || start.isEmpty() || end.isEmpty()) {</span>
+<span class="nc" id="L255">                    JOptionPane.showMessageDialog(this, &quot;All fields except Dependencies are required.&quot;, &quot;Input Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L256">                    return;</span>
+                }
+                
+                // Check unique ID
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                if (project.getTasks() != null) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                    for (Task t : project.getTasks()) {</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                        if (t.getId() == id) {</span>
+<span class="nc" id="L263">                            JOptionPane.showMessageDialog(this, &quot;Task ID must be unique.&quot;, &quot;Input Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L264">                            return;</span>
+                        }
+<span class="nc" id="L266">                    }</span>
+                }
+                
+<span class="nc" id="L269">                Task t = new Task(id, title, start, end, deps);</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">                if (project.getTasks() == null) {</span>
+<span class="nc" id="L271">                    project.setTasks(new ArrayList&lt;&gt;());</span>
+                }
+<span class="nc" id="L273">                project.getTasks().add(t);</span>
+                
+                // Save to database if using database storage
+<span class="nc bnc" id="L276" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+                    try {
+<span class="nc" id="L278">                        databaseStorage.saveTaskToDatabase(t, project.getName());</span>
+<span class="nc" id="L279">                    } catch (Exception e) {</span>
+<span class="nc" id="L280">                        JOptionPane.showMessageDialog(this, &quot;Error saving task to database: &quot; + e.getMessage(),</span>
+                                &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L282">                    }</span>
+                }
+                
+<span class="nc" id="L285">                refreshTaskTable();</span>
+<span class="nc" id="L286">                JOptionPane.showMessageDialog(this, &quot;Task added successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L287">            } catch (Exception ex) {</span>
+<span class="nc" id="L288">                JOptionPane.showMessageDialog(this, &quot;Invalid input: &quot; + ex.getMessage(), &quot;Input Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L289">            }</span>
+        }
+<span class="nc" id="L291">    }</span>
+
+    // === ADD RESOURCE FUNCTIONALITY ===
+    private void showAddResourceDialog() {
+<span class="nc" id="L295">        JTextField nameField = new JTextField();</span>
+<span class="nc" id="L296">        JTextField allocsField = new JTextField();</span>
+
+<span class="nc" id="L298">        Object[] fields = {</span>
+            &quot;Name:&quot;, nameField,
+            &quot;Allocations (taskId:load, ...):&quot;, allocsField
+        };
+<span class="nc" id="L302">        int res = JOptionPane.showConfirmDialog(this, fields, &quot;Add Resource&quot;, JOptionPane.OK_CANCEL_OPTION);</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if (res == JOptionPane.OK_OPTION) {</span>
+            try {
+<span class="nc" id="L305">                String name = nameField.getText().trim();</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">                if (name.isEmpty()) {</span>
+<span class="nc" id="L307">                    JOptionPane.showMessageDialog(this, &quot;Name required.&quot;, &quot;Input Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L308">                    return;</span>
+                }
+<span class="nc" id="L310">                String allocsStr = allocsField.getText().trim();</span>
+<span class="nc" id="L311">                List&lt;Allocation&gt; allocList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">                if (!allocsStr.isEmpty()) {</span>
+<span class="nc" id="L313">                    String[] allocs = allocsStr.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">                    for (String pair : allocs) {</span>
+<span class="nc" id="L315">                        String[] vals = pair.trim().split(&quot;:&quot;);</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">                        if (vals.length == 2) {</span>
+<span class="nc" id="L317">                            int taskId = Integer.parseInt(vals[0].trim());</span>
+<span class="nc" id="L318">                            int load = Integer.parseInt(vals[1].trim());</span>
+<span class="nc" id="L319">                            allocList.add(new Allocation(taskId, load));</span>
+                        }
+                    }
+                }
+<span class="nc" id="L323">                Resource resObj = new Resource(name, allocList);</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">                if (project.getResources() == null) {</span>
+<span class="nc" id="L325">                    project.setResources(new ArrayList&lt;&gt;());</span>
+                }
+<span class="nc" id="L327">                project.getResources().add(resObj);</span>
+                
+                // Save to database if using database storage
+<span class="nc bnc" id="L330" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+                    try {
+<span class="nc" id="L332">                        databaseStorage.saveResourceToDatabase(resObj, project.getName());</span>
+<span class="nc" id="L333">                    } catch (Exception e) {</span>
+<span class="nc" id="L334">                        JOptionPane.showMessageDialog(this, &quot;Error saving resource to database: &quot; + e.getMessage(),</span>
+                                &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L336">                    }</span>
+                }
+                
+<span class="nc" id="L339">                refreshResourceTable();</span>
+<span class="nc" id="L340">                JOptionPane.showMessageDialog(this, &quot;Resource added successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L341">            } catch (Exception ex) {</span>
+<span class="nc" id="L342">                JOptionPane.showMessageDialog(this, &quot;Invalid input: &quot; + ex.getMessage(), &quot;Input Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L343">            }</span>
+        }
+<span class="nc" id="L345">    }</span>
+
+    // === NEW PROJECT FUNCTIONALITY ===
+    private void createOrLoadNewProject() {
+<span class="nc" id="L349">        Object[] options = { &quot;Create New&quot;, &quot;Load from File&quot;, &quot;Load from Database&quot;, &quot;Cancel&quot; };</span>
+<span class="nc" id="L350">        int choice = JOptionPane.showOptionDialog(this, </span>
+            &quot;New Project: create new or load from storage?&quot;, &quot;New Project&quot;, 
+            JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
+        
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        if (choice == 0) {</span>
+            // Create New
+<span class="nc" id="L356">            String projectName = JOptionPane.showInputDialog(&quot;Enter Project Name:&quot;);</span>
+<span class="nc bnc" id="L357" title="All 4 branches missed.">            if (projectName != null &amp;&amp; !projectName.trim().isEmpty()) {</span>
+<span class="nc" id="L358">                project.setName(projectName.trim());</span>
+<span class="nc" id="L359">                project.setTasks(new ArrayList&lt;&gt;());</span>
+<span class="nc" id="L360">                project.setResources(new ArrayList&lt;&gt;());</span>
+<span class="nc" id="L361">                storageTypeCombo.setSelectedIndex(0);</span>
+<span class="nc" id="L362">                useDatabaseStorage = false;</span>
+<span class="nc" id="L363">                refreshTaskTable();</span>
+<span class="nc" id="L364">                refreshResourceTable();</span>
+<span class="nc" id="L365">                JOptionPane.showMessageDialog(this, &quot;New project created: &quot; + projectName, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+            }
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        } else if (choice == 1) {</span>
+            // Load from File
+<span class="nc" id="L369">            JFileChooser chooser = new JFileChooser();</span>
+<span class="nc" id="L370">            int res = chooser.showOpenDialog(this);</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">            if (res == JFileChooser.APPROVE_OPTION) {</span>
+<span class="nc" id="L372">                File file = chooser.getSelectedFile();</span>
+                try {
+<span class="nc" id="L374">                    Project loaded = fileStorage.loadProjectFromText(file);</span>
+<span class="nc" id="L375">                    project.setName(loaded.getName());</span>
+<span class="nc" id="L376">                    project.setTasks(loaded.getTasks());</span>
+<span class="nc" id="L377">                    project.setResources(loaded.getResources());</span>
+<span class="nc" id="L378">                    storageTypeCombo.setSelectedIndex(0);</span>
+<span class="nc" id="L379">                    useDatabaseStorage = false;</span>
+<span class="nc" id="L380">                    refreshTaskTable();</span>
+<span class="nc" id="L381">                    refreshResourceTable();</span>
+<span class="nc" id="L382">                    JOptionPane.showMessageDialog(this, &quot;Project loaded from file successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L383">                } catch (Exception ex) {</span>
+<span class="nc" id="L384">                    JOptionPane.showMessageDialog(this, &quot;Failed to load: &quot; + ex.getMessage(), </span>
+                            &quot;Load Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L386">                }</span>
+            }
+<span class="nc bnc" id="L388" title="All 2 branches missed.">        } else if (choice == 2) {</span>
+            // Load from Database
+<span class="nc" id="L390">            String projectName = JOptionPane.showInputDialog(&quot;Enter Project Name to load from database:&quot;);</span>
+<span class="nc bnc" id="L391" title="All 4 branches missed.">            if (projectName != null &amp;&amp; !projectName.trim().isEmpty()) {</span>
+                try {
+<span class="nc" id="L393">                    Project loaded = databaseStorage.loadProjectFromDatabase(projectName.trim());</span>
+<span class="nc" id="L394">                    project.setName(loaded.getName());</span>
+<span class="nc" id="L395">                    project.setTasks(loaded.getTasks());</span>
+<span class="nc" id="L396">                    project.setResources(loaded.getResources());</span>
+<span class="nc" id="L397">                    storageTypeCombo.setSelectedIndex(1);</span>
+<span class="nc" id="L398">                    useDatabaseStorage = true;</span>
+<span class="nc" id="L399">                    refreshTaskTable();</span>
+<span class="nc" id="L400">                    refreshResourceTable();</span>
+<span class="nc" id="L401">                    JOptionPane.showMessageDialog(this, &quot;Project loaded from database successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L402">                } catch (Exception ex) {</span>
+<span class="nc" id="L403">                    JOptionPane.showMessageDialog(this, &quot;Failed to load from database: &quot; + ex.getMessage(), </span>
+                            &quot;Load Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L405">                }</span>
+            }
+        }
+<span class="nc" id="L408">    }</span>
+
+    // === SAVE PROJECT FUNCTIONALITY ===
+    private void saveProject() {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        if (useDatabaseStorage) {</span>
+<span class="nc" id="L413">            saveProjectToDatabase();</span>
+        } else {
+<span class="nc" id="L415">            saveProjectToFile();</span>
+        }
+<span class="nc" id="L417">    }</span>
+
+    private void saveProjectToDatabase() {
+        try {
+<span class="nc" id="L421">            databaseStorage.saveProjectToDatabase(project);</span>
+<span class="nc" id="L422">            JOptionPane.showMessageDialog(this, &quot;Project saved to database successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L423">        } catch (Exception ex) {</span>
+<span class="nc" id="L424">            JOptionPane.showMessageDialog(this, &quot;Error saving to database: &quot; + ex.getMessage(),</span>
+                    &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L426">        }</span>
+<span class="nc" id="L427">    }</span>
+
+    private void saveProjectToFile() {
+<span class="nc" id="L430">        JFileChooser chooser = new JFileChooser();</span>
+<span class="nc" id="L431">        chooser.setSelectedFile(new File(project.getName() + &quot;.txt&quot;));</span>
+<span class="nc" id="L432">        int res = chooser.showSaveDialog(this);</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (res == JFileChooser.APPROVE_OPTION) {</span>
+<span class="nc" id="L434">            File file = chooser.getSelectedFile();</span>
+            try {
+<span class="nc" id="L436">                fileStorage.saveProjectAsText(project, file);</span>
+<span class="nc" id="L437">                JOptionPane.showMessageDialog(this, &quot;Project saved to &quot; + file.getAbsolutePath(), &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L438">            } catch (Exception ex) {</span>
+<span class="nc" id="L439">                JOptionPane.showMessageDialog(this, &quot;Error saving: &quot; + ex.getMessage(), </span>
+                        &quot;Save Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L441">            }</span>
+        }
+<span class="nc" id="L443">    }</span>
+
+    // === EDIT/DELETE FUNCTIONALITY ===
+    private void editSelectedTask() {
+<span class="nc" id="L447">        int selectedRow = taskTable.getSelectedRow();</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">        if (selectedRow == -1) {</span>
+<span class="nc" id="L449">            JOptionPane.showMessageDialog(this, &quot;Please select a task to edit.&quot;, &quot;No Selection&quot;, JOptionPane.WARNING_MESSAGE);</span>
+<span class="nc" id="L450">            return;</span>
+        }
+        
+<span class="nc bnc" id="L453" title="All 6 branches missed.">        if (project.getTasks() == null || selectedRow &lt; 0 || selectedRow &gt;= project.getTasks().size()) return;</span>
+        
+<span class="nc" id="L455">        Task task = project.getTasks().get(selectedRow);</span>
+<span class="nc" id="L456">        showEditTaskDialog(task, selectedRow);</span>
+<span class="nc" id="L457">    }</span>
+
+    private void deleteSelectedTask() {
+<span class="nc" id="L460">        int selectedRow = taskTable.getSelectedRow();</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">        if (selectedRow == -1) {</span>
+<span class="nc" id="L462">            JOptionPane.showMessageDialog(this, &quot;Please select a task to delete.&quot;, &quot;No Selection&quot;, JOptionPane.WARNING_MESSAGE);</span>
+<span class="nc" id="L463">            return;</span>
+        }
+        
+<span class="nc bnc" id="L466" title="All 6 branches missed.">        if (project.getTasks() == null || selectedRow &lt; 0 || selectedRow &gt;= project.getTasks().size()) return;</span>
+        
+<span class="nc" id="L468">        Task task = project.getTasks().get(selectedRow);</span>
+<span class="nc" id="L469">        int confirm = JOptionPane.showConfirmDialog(this, </span>
+<span class="nc" id="L470">            &quot;Are you sure you want to delete task '&quot; + task.getTitle() + &quot;'?\nThis action cannot be undone.&quot;, </span>
+            &quot;Confirm Delete&quot;, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        if (confirm == JOptionPane.YES_OPTION) {</span>
+            // Remove from backend first
+<span class="nc bnc" id="L475" title="All 2 branches missed.">            if (useDatabaseStorage) {</span>
+                try {
+<span class="nc" id="L477">                    databaseStorage.deleteTaskFromDatabase(task.getId());</span>
+<span class="nc" id="L478">                } catch (Exception e) {</span>
+<span class="nc" id="L479">                    JOptionPane.showMessageDialog(this, &quot;Error deleting task from database: &quot; + e.getMessage(),</span>
+                            &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L481">                    return;</span>
+<span class="nc" id="L482">                }</span>
+            }
+            
+            // Remove from frontend
+<span class="nc" id="L486">            project.getTasks().remove(selectedRow);</span>
+            
+            // Refresh display
+<span class="nc" id="L489">            refreshTaskTable();</span>
+<span class="nc" id="L490">            refreshResourceTable();</span>
+            
+            // Clear selection
+<span class="nc" id="L493">            taskTable.clearSelection();</span>
+<span class="nc" id="L494">            editSelectedTaskBtn.setEnabled(false);</span>
+<span class="nc" id="L495">            deleteSelectedTaskBtn.setEnabled(false);</span>
+            
+<span class="nc" id="L497">            JOptionPane.showMessageDialog(this, &quot;Task deleted successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+        }
+<span class="nc" id="L499">    }</span>
+
+    private void editSelectedResource() {
+<span class="nc" id="L502">        int selectedRow = resourceTable.getSelectedRow();</span>
+<span class="nc bnc" id="L503" title="All 2 branches missed.">        if (selectedRow == -1) {</span>
+<span class="nc" id="L504">            JOptionPane.showMessageDialog(this, &quot;Please select a resource to edit.&quot;, &quot;No Selection&quot;, JOptionPane.WARNING_MESSAGE);</span>
+<span class="nc" id="L505">            return;</span>
+        }
+        
+<span class="nc bnc" id="L508" title="All 6 branches missed.">        if (project.getResources() == null || selectedRow &lt; 0 || selectedRow &gt;= project.getResources().size()) return;</span>
+        
+<span class="nc" id="L510">        Resource resource = project.getResources().get(selectedRow);</span>
+<span class="nc" id="L511">        showEditResourceDialog(resource, selectedRow);</span>
+<span class="nc" id="L512">    }</span>
+
+    private void deleteSelectedResource() {
+<span class="nc" id="L515">        int selectedRow = resourceTable.getSelectedRow();</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">        if (selectedRow == -1) {</span>
+<span class="nc" id="L517">            JOptionPane.showMessageDialog(this, &quot;Please select a resource to delete.&quot;, &quot;No Selection&quot;, JOptionPane.WARNING_MESSAGE);</span>
+<span class="nc" id="L518">            return;</span>
+        }
+        
+<span class="nc bnc" id="L521" title="All 6 branches missed.">        if (project.getResources() == null || selectedRow &lt; 0 || selectedRow &gt;= project.getResources().size()) return;</span>
+        
+<span class="nc" id="L523">        Resource resource = project.getResources().get(selectedRow);</span>
+<span class="nc" id="L524">        int confirm = JOptionPane.showConfirmDialog(this, </span>
+<span class="nc" id="L525">            &quot;Are you sure you want to delete resource '&quot; + resource.getName() + &quot;'?\nThis action cannot be undone.&quot;, </span>
+            &quot;Confirm Delete&quot;, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        
+<span class="nc bnc" id="L528" title="All 2 branches missed.">        if (confirm == JOptionPane.YES_OPTION) {</span>
+            // Remove from backend first
+<span class="nc bnc" id="L530" title="All 2 branches missed.">            if (useDatabaseStorage) {</span>
+                try {
+<span class="nc" id="L532">                    databaseStorage.deleteResourceFromDatabase(resource.getName());</span>
+<span class="nc" id="L533">                } catch (Exception e) {</span>
+<span class="nc" id="L534">                    JOptionPane.showMessageDialog(this, &quot;Error deleting resource from database: &quot; + e.getMessage(),</span>
+                            &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L536">                    return;</span>
+<span class="nc" id="L537">                }</span>
+            }
+            
+            // Remove from frontend
+<span class="nc" id="L541">            project.getResources().remove(selectedRow);</span>
+            
+            // Refresh display
+<span class="nc" id="L544">            refreshResourceTable();</span>
+            
+            // Clear selection
+<span class="nc" id="L547">            resourceTable.clearSelection();</span>
+<span class="nc" id="L548">            editSelectedResourceBtn.setEnabled(false);</span>
+<span class="nc" id="L549">            deleteSelectedResourceBtn.setEnabled(false);</span>
+            
+<span class="nc" id="L551">            JOptionPane.showMessageDialog(this, &quot;Resource deleted successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+        }
+<span class="nc" id="L553">    }</span>
+
+    private void showEditTaskDialog(Task task, int row) {
+        // Create form fields with current data
+<span class="nc" id="L557">        JTextField idField = new JTextField(String.valueOf(task.getId()));</span>
+<span class="nc" id="L558">        JTextField titleField = new JTextField(task.getTitle());</span>
+<span class="nc" id="L559">        JTextField startField = new JTextField(task.getStart());</span>
+<span class="nc" id="L560">        JTextField endField = new JTextField(task.getEnd());</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        JTextField depsField = new JTextField(task.getDependencies() != null ? task.getDependencies() : &quot;&quot;);</span>
+
+        // Make ID field non-editable
+<span class="nc" id="L564">        idField.setEditable(false);</span>
+<span class="nc" id="L565">        idField.setBackground(Color.LIGHT_GRAY);</span>
+
+<span class="nc" id="L567">        Object[] fields = {</span>
+            &quot;ID (cannot be changed):&quot;, idField,
+            &quot;Title:&quot;, titleField,
+            &quot;Start (yyyy-MM-dd):&quot;, startField,
+            &quot;End (yyyy-MM-dd):&quot;, endField,
+            &quot;Dependencies (comma separated IDs):&quot;, depsField
+        };
+
+<span class="nc" id="L575">        int result = JOptionPane.showConfirmDialog(this, fields, &quot;Edit Task - &quot; + task.getTitle(), </span>
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        
+<span class="nc bnc" id="L578" title="All 2 branches missed.">        if (result == JOptionPane.OK_OPTION) {</span>
+            try {
+                // Validate inputs
+<span class="nc" id="L581">                String title = titleField.getText().trim();</span>
+<span class="nc" id="L582">                String start = startField.getText().trim();</span>
+<span class="nc" id="L583">                String end = endField.getText().trim();</span>
+<span class="nc" id="L584">                String deps = depsField.getText().trim();</span>
+
+<span class="nc bnc" id="L586" title="All 6 branches missed.">                if (title.isEmpty() || start.isEmpty() || end.isEmpty()) {</span>
+<span class="nc" id="L587">                    JOptionPane.showMessageDialog(this, &quot;Title, Start, and End fields are required.&quot;, &quot;Validation Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L588">                    return;</span>
+                }
+
+                // Update the task object
+<span class="nc" id="L592">                task.setTitle(title);</span>
+<span class="nc" id="L593">                task.setStart(start);</span>
+<span class="nc" id="L594">                task.setEnd(end);</span>
+<span class="nc" id="L595">                task.setDependencies(deps);</span>
+
+                // Save to backend
+<span class="nc bnc" id="L598" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+                    try {
+<span class="nc" id="L600">                        databaseStorage.updateTaskInDatabase(task);</span>
+<span class="nc" id="L601">                    } catch (Exception e) {</span>
+<span class="nc" id="L602">                        JOptionPane.showMessageDialog(this, &quot;Error updating task in database: &quot; + e.getMessage(),</span>
+                                &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L604">                    }</span>
+                }
+
+                // Refresh display
+<span class="nc" id="L608">                refreshTaskTable();</span>
+                
+<span class="nc" id="L610">                JOptionPane.showMessageDialog(this, &quot;Task updated successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+
+<span class="nc" id="L612">            } catch (Exception ex) {</span>
+<span class="nc" id="L613">                JOptionPane.showMessageDialog(this, &quot;Error updating task: &quot; + ex.getMessage(), </span>
+                        &quot;Update Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L615">            }</span>
+        }
+<span class="nc" id="L617">    }</span>
+
+    private void showEditResourceDialog(Resource resource, int row) {
+        // Create form fields with current data
+<span class="nc" id="L621">        JTextField nameField = new JTextField(resource.getName());</span>
+        
+        // Build allocations string
+<span class="nc" id="L624">        StringBuilder allocsBuilder = new StringBuilder();</span>
+<span class="nc bnc" id="L625" title="All 2 branches missed.">        if (resource.getAllocations() != null) {</span>
+<span class="nc bnc" id="L626" title="All 2 branches missed.">            for (Allocation alloc : resource.getAllocations()) {</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">                if (allocsBuilder.length() &gt; 0) allocsBuilder.append(&quot;, &quot;);</span>
+<span class="nc" id="L628">                allocsBuilder.append(alloc.getTaskId()).append(&quot;:&quot;).append(alloc.getLoad());</span>
+<span class="nc" id="L629">            }</span>
+        }
+<span class="nc" id="L631">        JTextField allocsField = new JTextField(allocsBuilder.toString());</span>
+
+<span class="nc" id="L633">        Object[] fields = {</span>
+            &quot;Name:&quot;, nameField,
+            &quot;Allocations (format: taskId:load, taskId:load, ...):&quot;, allocsField
+        };
+
+<span class="nc" id="L638">        int result = JOptionPane.showConfirmDialog(this, fields, &quot;Edit Resource - &quot; + resource.getName(), </span>
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        
+<span class="nc bnc" id="L641" title="All 2 branches missed.">        if (result == JOptionPane.OK_OPTION) {</span>
+            try {
+<span class="nc" id="L643">                String name = nameField.getText().trim();</span>
+<span class="nc" id="L644">                String allocsStr = allocsField.getText().trim();</span>
+                
+<span class="nc bnc" id="L646" title="All 2 branches missed.">                if (name.isEmpty()) {</span>
+<span class="nc" id="L647">                    JOptionPane.showMessageDialog(this, &quot;Resource name is required.&quot;, &quot;Validation Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L648">                    return;</span>
+                }
+                
+                // Parse allocations
+<span class="nc" id="L652">                List&lt;Allocation&gt; allocList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L653" title="All 2 branches missed.">                if (!allocsStr.isEmpty()) {</span>
+<span class="nc" id="L654">                    String[] allocs = allocsStr.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L655" title="All 2 branches missed.">                    for (String pair : allocs) {</span>
+<span class="nc" id="L656">                        String[] vals = pair.trim().split(&quot;:&quot;);</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">                        if (vals.length == 2) {</span>
+                            try {
+<span class="nc" id="L659">                                int taskId = Integer.parseInt(vals[0].trim());</span>
+<span class="nc" id="L660">                                int load = Integer.parseInt(vals[1].trim());</span>
+<span class="nc bnc" id="L661" title="All 4 branches missed.">                                if (load &lt; 0 || load &gt; 100) {</span>
+<span class="nc" id="L662">                                    JOptionPane.showMessageDialog(this, &quot;Load must be between 0 and 100.&quot;, &quot;Validation Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L663">                                    return;</span>
+                                }
+<span class="nc" id="L665">                                allocList.add(new Allocation(taskId, load));</span>
+<span class="nc" id="L666">                            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L667">                                JOptionPane.showMessageDialog(this, &quot;Invalid allocation format: &quot; + pair, &quot;Validation Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L668">                                return;</span>
+<span class="nc" id="L669">                            }</span>
+                        } else {
+<span class="nc" id="L671">                            JOptionPane.showMessageDialog(this, &quot;Invalid allocation format: &quot; + pair, &quot;Validation Error&quot;, JOptionPane.ERROR_MESSAGE);</span>
+<span class="nc" id="L672">                            return;</span>
+                        }
+                    }
+                }
+
+                // For database, handle name change by deleting old and creating new
+<span class="nc" id="L678">                String oldName = resource.getName();</span>
+<span class="nc bnc" id="L679" title="All 4 branches missed.">                if (useDatabaseStorage &amp;&amp; !oldName.equals(name)) {</span>
+                    try {
+<span class="nc" id="L681">                        databaseStorage.deleteResourceFromDatabase(oldName);</span>
+<span class="nc" id="L682">                    } catch (Exception e) {</span>
+                        // Continue anyway
+<span class="nc" id="L684">                    }</span>
+                }
+
+                // Update the resource object
+<span class="nc" id="L688">                resource.setName(name);</span>
+<span class="nc" id="L689">                resource.setAllocations(allocList);</span>
+
+                // Save to backend
+<span class="nc bnc" id="L692" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+                    try {
+<span class="nc" id="L694">                        databaseStorage.saveResourceToDatabase(resource, project.getName());</span>
+<span class="nc" id="L695">                    } catch (Exception e) {</span>
+<span class="nc" id="L696">                        JOptionPane.showMessageDialog(this, &quot;Error updating resource in database: &quot; + e.getMessage(),</span>
+                                &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L698">                    }</span>
+                }
+
+                // Refresh display
+<span class="nc" id="L702">                refreshResourceTable();</span>
+                
+<span class="nc" id="L704">                JOptionPane.showMessageDialog(this, &quot;Resource updated successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+
+<span class="nc" id="L706">            } catch (Exception ex) {</span>
+<span class="nc" id="L707">                JOptionPane.showMessageDialog(this, &quot;Error updating resource: &quot; + ex.getMessage(), </span>
+                        &quot;Update Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L709">            }</span>
+        }
+<span class="nc" id="L711">    }</span>
+
+    // === FILE UPLOAD FUNCTIONALITY ===
+    private void handleFileUpload(String type) {
+<span class="nc" id="L715">        JFileChooser chooser = new JFileChooser();</span>
+<span class="nc" id="L716">        chooser.setCurrentDirectory(new File(System.getProperty(&quot;user.dir&quot;)));</span>
+<span class="nc" id="L717">        int res = chooser.showOpenDialog(this);</span>
+<span class="nc bnc" id="L718" title="All 2 branches missed.">        if (res != JFileChooser.APPROVE_OPTION) return;</span>
+
+<span class="nc" id="L720">        String path = chooser.getSelectedFile().getAbsolutePath();</span>
+
+        try {
+<span class="nc bnc" id="L723" title="All 2 branches missed.">            if (type.equalsIgnoreCase(&quot;tasks&quot;)) {</span>
+<span class="nc" id="L724">                FileController.ParseResult&lt;Task&gt; parsed = FileController.loadTasksWithErrors(path);</span>
+
+<span class="nc bnc" id="L726" title="All 2 branches missed.">                if (!parsed.errors.isEmpty()) {</span>
+<span class="nc" id="L727">                    JOptionPane.showMessageDialog(this,</span>
+<span class="nc" id="L728">                            String.join(&quot;\n&quot;, parsed.errors),</span>
+                            &quot;Task File Warnings&quot;, JOptionPane.WARNING_MESSAGE);
+                }
+
+<span class="nc bnc" id="L732" title="All 2 branches missed.">                if (parsed.items.isEmpty()) {</span>
+<span class="nc" id="L733">                    JOptionPane.showMessageDialog(this,</span>
+                            &quot;No valid tasks found. Please check your file format.&quot;,
+                            &quot;Upload Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L736">                    return;</span>
+                }
+
+<span class="nc" id="L739">                project.setTasks(parsed.items);</span>
+<span class="nc" id="L740">                JOptionPane.showMessageDialog(this, &quot;Tasks uploaded successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+
+<span class="nc" id="L742">                refreshTaskTable();</span>
+
+                // Save to database if using database storage
+<span class="nc bnc" id="L745" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+<span class="nc bnc" id="L746" title="All 2 branches missed.">                    for (Task task : parsed.items) {</span>
+                        try {
+<span class="nc" id="L748">                            databaseStorage.saveTaskToDatabase(task, project.getName());</span>
+<span class="nc" id="L749">                        } catch (Exception e) {</span>
+<span class="nc" id="L750">                            JOptionPane.showMessageDialog(this, &quot;Error saving task to database: &quot; + e.getMessage(),</span>
+                                    &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L752">                        }</span>
+<span class="nc" id="L753">                    }</span>
+                }
+
+                // Prompt for resources upload
+<span class="nc" id="L757">                int next = JOptionPane.showConfirmDialog(this,</span>
+                        &quot;Do you want to upload Resources now?&quot;,
+                        &quot;Next Step&quot;,
+                        JOptionPane.YES_NO_OPTION);
+<span class="nc bnc" id="L761" title="All 2 branches missed.">                if (next == JOptionPane.YES_OPTION) {</span>
+<span class="nc" id="L762">                    handleFileUpload(&quot;resources&quot;);</span>
+                }
+
+<span class="nc bnc" id="L765" title="All 2 branches missed.">            } else if (type.equalsIgnoreCase(&quot;resources&quot;)) {</span>
+<span class="nc bnc" id="L766" title="All 4 branches missed.">                if (project.getTasks() == null || project.getTasks().isEmpty()) {</span>
+<span class="nc" id="L767">                    JOptionPane.showMessageDialog(this,</span>
+                            &quot;Please upload tasks before uploading resources.&quot;,
+                            &quot;Missing Tasks&quot;, JOptionPane.WARNING_MESSAGE);
+<span class="nc" id="L770">                    return;</span>
+                }
+
+<span class="nc" id="L773">                List&lt;Resource&gt; resources = FileController.loadResources(path);</span>
+
+                // Validate resource allocations
+<span class="nc" id="L776">                Set&lt;Integer&gt; validTaskIds = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L777" title="All 2 branches missed.">                for (Task t : project.getTasks()) validTaskIds.add(t.getId());</span>
+
+<span class="nc" id="L779">                FileController.ValidationResult validation =</span>
+<span class="nc" id="L780">                        FileController.validateResources(resources, validTaskIds);</span>
+
+<span class="nc bnc" id="L782" title="All 2 branches missed.">                if (!validation.errors.isEmpty()) {</span>
+<span class="nc" id="L783">                    JOptionPane.showMessageDialog(this,</span>
+<span class="nc" id="L784">                            String.join(&quot;\n&quot;, validation.errors),</span>
+                            &quot;Resource File Warnings&quot;, JOptionPane.WARNING_MESSAGE);
+                }
+
+<span class="nc" id="L788">                project.setResources(resources);</span>
+<span class="nc" id="L789">                JOptionPane.showMessageDialog(this, &quot;Resources uploaded and linked successfully!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+
+<span class="nc" id="L791">                refreshResourceTable();</span>
+
+                // Save to database if using database storage
+<span class="nc bnc" id="L794" title="All 2 branches missed.">                if (useDatabaseStorage) {</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">                    for (Resource resource : resources) {</span>
+                        try {
+<span class="nc" id="L797">                            databaseStorage.saveResourceToDatabase(resource, project.getName());</span>
+<span class="nc" id="L798">                        } catch (Exception e) {</span>
+<span class="nc" id="L799">                            JOptionPane.showMessageDialog(this, &quot;Error saving resource to database: &quot; + e.getMessage(),</span>
+                                    &quot;Database Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L801">                        }</span>
+<span class="nc" id="L802">                    }</span>
+                }
+            }
+
+<span class="nc" id="L806">        } catch (Exception ex) {</span>
+<span class="nc" id="L807">            JOptionPane.showMessageDialog(this,</span>
+<span class="nc" id="L808">                    &quot;Error processing file:\n&quot; + ex.getMessage(),</span>
+                    &quot;Upload Error&quot;, JOptionPane.ERROR_MESSAGE);
+<span class="nc" id="L810">            ex.printStackTrace();</span>
+<span class="nc" id="L811">        }</span>
+<span class="nc" id="L812">    }</span>
+
+    // === SHOW FULL TASK TABLE ===
+    private void showFullTaskTableDialog() {
+<span class="nc" id="L816">        List&lt;Task&gt; tasks = project.getTasks();</span>
+<span class="nc" id="L817">        List&lt;Resource&gt; resources = project.getResources();</span>
+<span class="nc bnc" id="L818" title="All 4 branches missed.">        if (tasks == null || tasks.isEmpty()) {</span>
+<span class="nc" id="L819">            JOptionPane.showMessageDialog(this, &quot;No tasks available.&quot;, &quot;Info&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+<span class="nc" id="L820">            return;</span>
+        }
+        
+<span class="nc" id="L823">        String[] cols = {&quot;Id&quot;, &quot;Task&quot;, &quot;Start&quot;, &quot;End&quot;, &quot;Dependencies&quot;, &quot;Resources&quot;};</span>
+<span class="nc" id="L824">        Object[][] data = new Object[tasks.size()][cols.length];</span>
+
+<span class="nc bnc" id="L826" title="All 2 branches missed.">        for (int i = 0; i &lt; tasks.size(); i++) {</span>
+<span class="nc" id="L827">            Task t = tasks.get(i);</span>
+<span class="nc" id="L828">            data[i][0] = t.getId();</span>
+<span class="nc" id="L829">            data[i][1] = t.getTitle();</span>
+<span class="nc" id="L830">            data[i][2] = t.getStart();</span>
+<span class="nc" id="L831">            data[i][3] = t.getEnd();</span>
+<span class="nc" id="L832">            data[i][4] = t.getDependencies();</span>
+<span class="nc" id="L833">            data[i][5] = getResourcesForTask(t, resources);</span>
+        }
+
+<span class="nc" id="L836">        JTable table = new JTable(data, cols);</span>
+<span class="nc" id="L837">        table.setPreferredScrollableViewportSize(new Dimension(800, 300));</span>
+<span class="nc" id="L838">        JScrollPane scroll = new JScrollPane(table);</span>
+<span class="nc" id="L839">        JOptionPane.showMessageDialog(this, scroll, &quot;Tasks Overview&quot;, JOptionPane.PLAIN_MESSAGE);</span>
+<span class="nc" id="L840">    }</span>
+
+    private String getResourcesForTask(Task t, List&lt;Resource&gt; resources) {
+<span class="nc" id="L843">        List&lt;String&gt; resNames = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">        if (resources != null) {</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">            for (Resource r : resources) {</span>
+<span class="nc bnc" id="L846" title="All 2 branches missed.">                if (r.getAllocations() != null) {</span>
+<span class="nc bnc" id="L847" title="All 2 branches missed.">                    for (Allocation alloc : r.getAllocations()) {</span>
+<span class="nc bnc" id="L848" title="All 2 branches missed.">                        if (alloc.getTaskId() == t.getId()) {</span>
+<span class="nc bnc" id="L849" title="All 2 branches missed.">                            String suffix = (alloc.getLoad() &lt; 100) ? &quot;*&quot; : &quot;&quot;;</span>
+<span class="nc" id="L850">                            resNames.add(r.getName() + suffix);</span>
+                        }
+<span class="nc" id="L852">                    }</span>
+                }
+<span class="nc" id="L854">            }</span>
+        }
+<span class="nc" id="L856">        return String.join(&quot; &quot;, resNames);</span>
+    }
+
+    // === REFRESH METHODS ===
+    private void refreshTaskTable() {
+<span class="nc" id="L861">        List&lt;Task&gt; tasks = project.getTasks();</span>
+<span class="nc bnc" id="L862" title="All 2 branches missed.">        if (tasks == null) return;</span>
+
+<span class="nc" id="L864">        String[] cols = {&quot;ID&quot;, &quot;Title&quot;, &quot;Start&quot;, &quot;End&quot;, &quot;Dependencies&quot;};</span>
+<span class="nc" id="L865">        Object[][] data = new Object[tasks.size()][cols.length];</span>
+
+<span class="nc bnc" id="L867" title="All 2 branches missed.">        for (int i = 0; i &lt; tasks.size(); i++) {</span>
+<span class="nc" id="L868">            Task t = tasks.get(i);</span>
+<span class="nc" id="L869">            data[i][0] = t.getId();</span>
+<span class="nc" id="L870">            data[i][1] = t.getTitle();</span>
+<span class="nc" id="L871">            data[i][2] = t.getStart();</span>
+<span class="nc" id="L872">            data[i][3] = t.getEnd();</span>
+<span class="nc bnc" id="L873" title="All 2 branches missed.">            data[i][4] = t.getDependencies() != null ? t.getDependencies() : &quot;&quot;;</span>
+        }
+
+<span class="nc" id="L876">        taskTable.setModel(new DefaultTableModel(data, cols) {</span>
+            @Override
+            public boolean isCellEditable(int row, int column) {
+<span class="nc" id="L879">                return false;</span>
+            }
+        });
+<span class="nc" id="L882">    }</span>
+
+    private void refreshResourceTable() {
+<span class="nc" id="L885">        List&lt;Resource&gt; resources = project.getResources();</span>
+<span class="nc bnc" id="L886" title="All 2 branches missed.">        if (resources == null) return;</span>
+
+<span class="nc" id="L888">        String[] cols = {&quot;Name&quot;, &quot;Allocations&quot;};</span>
+<span class="nc" id="L889">        Object[][] data = new Object[resources.size()][cols.length];</span>
+
+<span class="nc bnc" id="L891" title="All 2 branches missed.">        for (int i = 0; i &lt; resources.size(); i++) {</span>
+<span class="nc" id="L892">            Resource r = resources.get(i);</span>
+<span class="nc" id="L893">            data[i][0] = r.getName();</span>
+<span class="nc bnc" id="L894" title="All 2 branches missed.">            data[i][1] = r.getAllocations() != null ? formatAllocations(r.getAllocations()) : &quot;&quot;;</span>
+        }
+
+<span class="nc" id="L897">        resourceTable.setModel(new DefaultTableModel(data, cols) {</span>
+            @Override
+            public boolean isCellEditable(int row, int column) {
+<span class="nc" id="L900">                return false;</span>
+            }
+        });
+<span class="nc" id="L903">    }</span>
+
+    private String formatAllocations(List&lt;Allocation&gt; allocations) {
+<span class="nc bnc" id="L906" title="All 4 branches missed.">        if (allocations == null || allocations.isEmpty()) return &quot;No allocations&quot;;</span>
+        
+<span class="nc" id="L908">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L909" title="All 2 branches missed.">        for (Allocation alloc : allocations) {</span>
+<span class="nc bnc" id="L910" title="All 2 branches missed.">            if (sb.length() &gt; 0) sb.append(&quot;, &quot;);</span>
+<span class="nc" id="L911">            sb.append(&quot;Task &quot;).append(alloc.getTaskId()).append(&quot; (&quot;).append(alloc.getLoad()).append(&quot;%)&quot;);</span>
+<span class="nc" id="L912">        }</span>
+<span class="nc" id="L913">        return sb.toString();</span>
+    }
+
+    // === DATABASE LOAD METHOD ===
+    private void loadProjectFromDatabase() {
+        try {
+<span class="nc" id="L919">            Project dbProject = databaseStorage.loadProjectFromDatabase(project.getName());</span>
+<span class="nc bnc" id="L920" title="All 4 branches missed.">            if (dbProject.getTasks() != null &amp;&amp; !dbProject.getTasks().isEmpty()) {</span>
+<span class="nc" id="L921">                project.setTasks(dbProject.getTasks());</span>
+<span class="nc" id="L922">                project.setResources(dbProject.getResources());</span>
+<span class="nc" id="L923">                refreshTaskTable();</span>
+<span class="nc" id="L924">                refreshResourceTable();</span>
+<span class="nc" id="L925">                JOptionPane.showMessageDialog(this, &quot;Project loaded from database!&quot;, &quot;Success&quot;, JOptionPane.INFORMATION_MESSAGE);</span>
+            } else {
+<span class="nc" id="L927">                JOptionPane.showMessageDialog(this, </span>
+                    &quot;No project data found in database. Starting with empty project.&quot;, 
+                    &quot;Info&quot;, JOptionPane.INFORMATION_MESSAGE);
+            }
+<span class="nc" id="L931">        } catch (Exception e) {</span>
+<span class="nc" id="L932">            JOptionPane.showMessageDialog(this, </span>
+<span class="nc" id="L933">                &quot;No project found in database with name: &quot; + project.getName() + </span>
+                &quot;\nCreating new project in database.&quot;, 
+                &quot;Info&quot;, JOptionPane.INFORMATION_MESSAGE);
+<span class="nc" id="L936">        }</span>
+<span class="nc" id="L937">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

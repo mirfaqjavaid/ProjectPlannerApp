@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GanttChartPanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">view</a> &gt; <span class="el_source">GanttChartPanel.java</span></div><h1>GanttChartPanel.java</h1><pre class="source lang-java linenums">package view;
+
+import javax.swing.*;
+import java.awt.*;
+import model.Task;
+import java.util.List;
+
+/**
+ * Polished time-based Gantt panel.
+ * - Left column: &quot;Task N: Title&quot;
+ * - Rounded light-blue bars positioned using parsed start/end times
+ * - Bottom timeline with ticks and formatted labels
+ * - Preferred size computed so JScrollPane shows scrollbars when needed
+ */
+public class GanttChartPanel extends JPanel {
+    private List&lt;Task&gt; tasks;
+
+<span class="nc" id="L18">    public GanttChartPanel(List&lt;Task&gt; tasks) {</span>
+<span class="nc" id="L19">        this.tasks = tasks;</span>
+<span class="nc" id="L20">        setPreferredSize(new Dimension(900, 300));</span>
+<span class="nc" id="L21">    }</span>
+
+    @Override
+    protected void paintComponent(Graphics g) {
+<span class="nc" id="L25">        super.paintComponent(g);</span>
+<span class="nc bnc" id="L26" title="All 4 branches missed.">        if (tasks == null || tasks.isEmpty()) return;</span>
+
+<span class="nc" id="L28">        Graphics2D g2 = (Graphics2D) g;</span>
+<span class="nc" id="L29">        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);</span>
+<span class="nc" id="L30">        g2.setFont(new Font(&quot;SansSerif&quot;, Font.PLAIN, 14));</span>
+
+<span class="nc" id="L32">        int n = tasks.size();</span>
+<span class="nc" id="L33">        int leftWidth = 220;</span>
+<span class="nc" id="L34">        int topMargin = 30;</span>
+<span class="nc" id="L35">        int barHeight = 22;</span>
+<span class="nc" id="L36">        int vGap = 18;</span>
+<span class="nc" id="L37">        int bottomMargin = 80;</span>
+
+        // Parse times to epoch millis
+<span class="nc" id="L40">        long[] starts = new long[n];</span>
+<span class="nc" id="L41">        long[] ends = new long[n];</span>
+<span class="nc" id="L42">        long min = Long.MAX_VALUE, max = Long.MIN_VALUE;</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L44">            Task t = tasks.get(i);</span>
+<span class="nc" id="L45">            long s = parseToMillis(t.getStart());</span>
+<span class="nc" id="L46">            long e = parseToMillis(t.getEnd());</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">            if (s &lt;= 0) s = System.currentTimeMillis();</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">            if (e &lt;= 0) e = s + 60*60*1000;</span>
+<span class="nc" id="L49">            starts[i] = s; ends[i] = e;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            if (s &lt; min) min = s;</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            if (e &gt; max) max = e;</span>
+        }
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (min &gt;= max) max = min + 60*60*1000;</span>
+
+        // Adjust left label column width so chart bars never overlap task names
+<span class="nc" id="L56">        FontMetrics fm = g2.getFontMetrics();</span>
+<span class="nc" id="L57">        int maxLabelWidth = 0;</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L59">            Task t = tasks.get(i);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            String title = t.getTitle() == null ? &quot;&quot; : t.getTitle();</span>
+<span class="nc" id="L61">            String label = &quot;Task &quot; + (i+1) + &quot;: &quot; + title;</span>
+<span class="nc" id="L62">            maxLabelWidth = Math.max(maxLabelWidth, fm.stringWidth(label));</span>
+        }
+        // Padding for the label column and a small gap before the chart
+<span class="nc" id="L65">        int labelPadding = 24;</span>
+<span class="nc" id="L66">        int labelToChartGap = 20;</span>
+<span class="nc" id="L67">        leftWidth = Math.max(140, Math.min(420, maxLabelWidth + labelPadding));</span>
+
+        
+<span class="nc" id="L70">        int viewWidth = getWidth();</span>
+<span class="nc" id="L71">        java.awt.Container p = getParent();</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if (p instanceof JViewport) {</span>
+<span class="nc" id="L73">            viewWidth = ((JViewport) p).getExtentSize().width;</span>
+        }
+<span class="nc" id="L75">        int xStart = leftWidth + labelToChartGap;</span>
+<span class="nc" id="L76">        int windowAvailable = Math.max(300, viewWidth - xStart - 50);</span>
+<span class="nc" id="L77">        double totalMs = (double) (max - min);</span>
+
+        // Candidate tick intervals (from 15 minutes up to a week)
+<span class="nc" id="L80">        long[] candidates = new long[] {</span>
+            15*60*1000L, 30*60*1000L, 60*60*1000L, 3*60*60*1000L,
+            6*60*60*1000L, 12*60*60*1000L, 24*60*60*1000L,
+            3*24*60*60*1000L, 7*24*60*60*1000L
+        };
+<span class="nc" id="L85">        int desiredTicks = 7;</span>
+<span class="nc" id="L86">        long tickMs = candidates[candidates.length-1];</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (long c : candidates) {</span>
+<span class="nc" id="L88">            double cnt = totalMs / c;</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (cnt &lt;= desiredTicks + 1) { tickMs = c; break; }</span>
+        }
+
+        // Determine pixels-per-tick from the visible area and clamp it so labels remain readable and chart stays compact
+<span class="nc" id="L93">        final double MIN_PX_PER_TICK = 60;  // minimum space for a tick label</span>
+<span class="nc" id="L94">        final double MAX_PX_PER_TICK = 140; // tighter max to keep chart compact</span>
+<span class="nc" id="L95">        double idealPxPerTick = windowAvailable / (double) desiredTicks;</span>
+<span class="nc" id="L96">        double pxPerTick = Math.max(MIN_PX_PER_TICK, Math.min(MAX_PX_PER_TICK, idealPxPerTick));</span>
+<span class="nc" id="L97">        double pxPerMs = pxPerTick / (double) tickMs;</span>
+<span class="nc" id="L98">        int availableWidth = (int) Math.ceil(pxPerMs * totalMs);</span>
+
+<span class="nc" id="L100">    int chartHeight = topMargin + n * (barHeight + vGap) + bottomMargin;</span>
+<span class="nc" id="L101">    setPreferredSize(new Dimension(xStart + availableWidth + 50, chartHeight));</span>
+
+        // Draw task labels and bars
+<span class="nc" id="L104">        int y = topMargin;</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L106">            Task t = tasks.get(i);</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">            String title = t.getTitle() == null ? &quot;&quot; : t.getTitle();</span>
+<span class="nc" id="L108">            String label = &quot;Task &quot; + (i+1) + &quot;: &quot; + title;</span>
+<span class="nc" id="L109">            g2.setColor(Color.BLACK);</span>
+<span class="nc" id="L110">            g2.drawString(label, 12, y + barHeight/2 + 6);</span>
+
+<span class="nc" id="L112">            int x1 = xStart + (int)Math.round((starts[i] - min) * pxPerMs);</span>
+<span class="nc" id="L113">            int x2 = xStart + (int)Math.round((ends[i] - min) * pxPerMs);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            if (x2 &lt;= x1) x2 = x1 + 6;</span>
+<span class="nc" id="L115">            int w = x2 - x1;</span>
+
+<span class="nc" id="L117">            g2.setColor(new Color(158, 209, 255));</span>
+<span class="nc" id="L118">            g2.fillRoundRect(x1, y, w, barHeight, 8, 8);</span>
+<span class="nc" id="L119">            g2.setColor(new Color(30, 90, 160));</span>
+<span class="nc" id="L120">            g2.drawRoundRect(x1, y, w, barHeight, 8, 8);</span>
+
+<span class="nc" id="L122">            y += barHeight + vGap;</span>
+        }
+
+        // Draw bottom timeline
+<span class="nc" id="L126">    int axisY = topMargin + n * (barHeight + vGap) + 10;</span>
+<span class="nc" id="L127">    int xEnd = xStart + availableWidth;</span>
+<span class="nc" id="L128">        g2.setColor(new Color(130,130,130));</span>
+<span class="nc" id="L129">        g2.drawLine(xStart, axisY, xEnd, axisY);</span>
+
+    // tickMs and pxPerMs were computed above based on the viewport and clamped px-per-tick
+
+<span class="nc" id="L133">        java.time.ZoneId zid = java.time.ZoneId.systemDefault();</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        java.time.format.DateTimeFormatter fmt = (tickMs &gt;= 24*60*60*1000L)</span>
+<span class="nc" id="L135">                ? java.time.format.DateTimeFormatter.ofPattern(&quot;dd-MM-yyyy&quot;)</span>
+<span class="nc" id="L136">                : java.time.format.DateTimeFormatter.ofPattern(&quot;dd-MM HH:mm&quot;);</span>
+
+<span class="nc" id="L138">        long firstTick = (min / tickMs) * tickMs;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (firstTick &lt; min) firstTick += tickMs;</span>
+
+<span class="nc" id="L141">        int lastLabelRight = -10000;</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        for (long tms = firstTick; tms &lt;= max + tickMs; tms += tickMs) {</span>
+<span class="nc" id="L143">            int x = xStart + (int)Math.round((tms - min) * pxPerMs);</span>
+            // no vertical grid lines: only small tick marker
+<span class="nc" id="L145">            g2.setColor(new Color(120,120,120));</span>
+<span class="nc" id="L146">            g2.drawLine(x, axisY-6, x, axisY+6);</span>
+<span class="nc" id="L147">            java.time.ZonedDateTime zdt = java.time.Instant.ofEpochMilli(tms).atZone(zid);</span>
+<span class="nc" id="L148">            String lbl = zdt.format(fmt);</span>
+<span class="nc" id="L149">            int lw = fm.stringWidth(lbl);</span>
+<span class="nc" id="L150">            int lblLeft = x - lw/2;</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            if (lblLeft &gt; lastLabelRight + 8) {</span>
+<span class="nc" id="L152">                g2.drawString(lbl, lblLeft, axisY + 20);</span>
+<span class="nc" id="L153">                lastLabelRight = lblLeft + lw;</span>
+            }
+        }
+<span class="nc" id="L156">    }</span>
+
+    private long parseToMillis(String dateStr) {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (dateStr == null) return -1;</span>
+<span class="nc" id="L160">        dateStr = dateStr.trim();</span>
+        try {
+<span class="nc" id="L162">            java.util.regex.Matcher m = java.util.regex.Pattern.compile(&quot;^(\\d{8})(\\d{4})?([+-]\\d{4})?$&quot;).matcher(dateStr);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (m.matches()) {</span>
+<span class="nc" id="L164">                String dpart = m.group(1);</span>
+<span class="nc" id="L165">                String tpart = m.group(2);</span>
+<span class="nc" id="L166">                String off = m.group(3);</span>
+<span class="nc" id="L167">                java.time.LocalDate d = java.time.LocalDate.parse(dpart, java.time.format.DateTimeFormatter.ofPattern(&quot;yyyyMMdd&quot;));</span>
+                java.time.LocalDateTime ldt;
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                if (tpart != null) {</span>
+<span class="nc" id="L170">                    int hh = Integer.parseInt(tpart.substring(0,2));</span>
+<span class="nc" id="L171">                    int mm = Integer.parseInt(tpart.substring(2,4));</span>
+<span class="nc" id="L172">                    ldt = d.atTime(hh, mm);</span>
+<span class="nc" id="L173">                } else {</span>
+<span class="nc" id="L174">                    ldt = d.atStartOfDay();</span>
+                }
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                if (off != null) {</span>
+<span class="nc" id="L177">                    java.time.ZoneOffset zo = java.time.ZoneOffset.of(off);</span>
+<span class="nc" id="L178">                    java.time.OffsetDateTime odt = java.time.OffsetDateTime.of(ldt, zo);</span>
+<span class="nc" id="L179">                    return odt.toInstant().toEpochMilli();</span>
+                } else {
+<span class="nc" id="L181">                    return ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                }
+            }
+<span class="nc" id="L184">        } catch (Exception ex) {}</span>
+<span class="nc" id="L185">        String[] patterns = new String[]{&quot;yyyyMMddHHmm&quot;,&quot;yyyyMMddHH&quot;,&quot;yyyy-MM-dd HH:mm&quot;,&quot;yyyy-MM-dd&quot;};</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        for (String p : patterns) {</span>
+            try {
+<span class="nc" id="L188">                java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern(p);</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">                if (p.equals(&quot;yyyy-MM-dd&quot;)) {</span>
+<span class="nc" id="L190">                    java.time.LocalDate ld = java.time.LocalDate.parse(dateStr, f);</span>
+<span class="nc" id="L191">                    return ld.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                } else {
+<span class="nc" id="L193">                    java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(dateStr, f);</span>
+<span class="nc" id="L194">                    return ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+                }
+<span class="nc" id="L196">            } catch (Exception e) {}</span>
+        }
+<span class="nc" id="L198">        return -1;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

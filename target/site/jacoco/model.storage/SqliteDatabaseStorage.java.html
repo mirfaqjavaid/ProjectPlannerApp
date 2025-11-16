@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SqliteDatabaseStorage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">model.storage</a> &gt; <span class="el_source">SqliteDatabaseStorage.java</span></div><h1>SqliteDatabaseStorage.java</h1><pre class="source lang-java linenums">package model.storage;
+
+import java.sql.*;
+import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import model.*;
+
+<span class="nc" id="L9">public class SqliteDatabaseStorage implements DatabaseStorage {</span>
+    
+    private Connection connect() throws SQLException {
+        
+<span class="nc" id="L13">       String url = &quot;jdbc:sqlite:project_planner.db&quot;;</span>
+
+
+<span class="nc" id="L16">        return DriverManager.getConnection(url);</span>
+    }
+
+    @Override
+    public void saveProjectToDatabase(Project project) throws Exception {
+<span class="nc" id="L21">        try (Connection conn = connect()) {</span>
+<span class="nc" id="L22">            conn.setAutoCommit(false);</span>
+            
+            // Save project metadata
+<span class="nc" id="L25">            String projectSql = &quot;INSERT OR REPLACE INTO projects(name) VALUES(?)&quot;;</span>
+<span class="nc" id="L26">            try (PreparedStatement pstmt = conn.prepareStatement(projectSql)) {</span>
+<span class="nc" id="L27">                pstmt.setString(1, project.getName());</span>
+<span class="nc" id="L28">                pstmt.executeUpdate();</span>
+            }
+            
+            // Clear existing tasks and resources for this project
+<span class="nc" id="L32">            String clearTasksSql = &quot;DELETE FROM tasks WHERE project_name = ?&quot;;</span>
+<span class="nc" id="L33">            String clearResourcesSql = &quot;DELETE FROM resources WHERE project_name = ?&quot;;</span>
+<span class="nc" id="L34">            String clearAllocationsSql = &quot;DELETE FROM allocations WHERE project_name = ?&quot;;</span>
+            
+<span class="nc" id="L36">            try (PreparedStatement pstmt = conn.prepareStatement(clearAllocationsSql)) {</span>
+<span class="nc" id="L37">                pstmt.setString(1, project.getName());</span>
+<span class="nc" id="L38">                pstmt.executeUpdate();</span>
+            }
+<span class="nc" id="L40">            try (PreparedStatement pstmt = conn.prepareStatement(clearTasksSql)) {</span>
+<span class="nc" id="L41">                pstmt.setString(1, project.getName());</span>
+<span class="nc" id="L42">                pstmt.executeUpdate();</span>
+            }
+<span class="nc" id="L44">            try (PreparedStatement pstmt = conn.prepareStatement(clearResourcesSql)) {</span>
+<span class="nc" id="L45">                pstmt.setString(1, project.getName());</span>
+<span class="nc" id="L46">                pstmt.executeUpdate();</span>
+            }
+            
+            // Save tasks
+<span class="nc" id="L50">            String taskSql = &quot;INSERT INTO tasks(id, title, start_date, end_date, dependencies, project_name) VALUES(?,?,?,?,?,?)&quot;;</span>
+<span class="nc" id="L51">            try (PreparedStatement pstmt = conn.prepareStatement(taskSql)) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">                for (Task task : project.getTasks()) {</span>
+<span class="nc" id="L53">                    pstmt.setInt(1, task.getId());</span>
+<span class="nc" id="L54">                    pstmt.setString(2, task.getTitle());</span>
+<span class="nc" id="L55">                    pstmt.setString(3, task.getStart());</span>
+<span class="nc" id="L56">                    pstmt.setString(4, task.getEnd());</span>
+<span class="nc" id="L57">                    pstmt.setString(5, task.getDependencies());</span>
+<span class="nc" id="L58">                    pstmt.setString(6, project.getName());</span>
+<span class="nc" id="L59">                    pstmt.addBatch();</span>
+<span class="nc" id="L60">                }</span>
+<span class="nc" id="L61">                pstmt.executeBatch();</span>
+            }
+            
+            // Save resources and allocations
+<span class="nc" id="L65">            String resourceSql = &quot;INSERT INTO resources(name, project_name) VALUES(?,?)&quot;;</span>
+<span class="nc" id="L66">            String allocationSql = &quot;INSERT INTO allocations(resource_name, task_id, load_percentage, project_name) VALUES(?,?,?,?)&quot;;</span>
+            
+<span class="nc" id="L68">            try (PreparedStatement resourceStmt = conn.prepareStatement(resourceSql);</span>
+<span class="nc" id="L69">                 PreparedStatement allocStmt = conn.prepareStatement(allocationSql)) {</span>
+                
+<span class="nc bnc" id="L71" title="All 2 branches missed.">                for (Resource resource : project.getResources()) {</span>
+<span class="nc" id="L72">                    resourceStmt.setString(1, resource.getName());</span>
+<span class="nc" id="L73">                    resourceStmt.setString(2, project.getName());</span>
+<span class="nc" id="L74">                    resourceStmt.addBatch();</span>
+                    
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                    for (Allocation alloc : resource.getAllocations()) {</span>
+<span class="nc" id="L77">                        allocStmt.setString(1, resource.getName());</span>
+<span class="nc" id="L78">                        allocStmt.setInt(2, alloc.getTaskId());</span>
+<span class="nc" id="L79">                        allocStmt.setInt(3, alloc.getLoad());</span>
+<span class="nc" id="L80">                        allocStmt.setString(4, project.getName());</span>
+<span class="nc" id="L81">                        allocStmt.addBatch();</span>
+<span class="nc" id="L82">                    }</span>
+<span class="nc" id="L83">                }</span>
+<span class="nc" id="L84">                resourceStmt.executeBatch();</span>
+<span class="nc" id="L85">                allocStmt.executeBatch();</span>
+            }
+            
+<span class="nc" id="L88">            conn.commit();</span>
+        }
+<span class="nc" id="L90">    }</span>
+
+    @Override
+    public Project loadProjectFromDatabase(String projectName) throws Exception {
+<span class="nc" id="L94">        Project project = new Project(projectName);</span>
+        
+<span class="nc" id="L96">        try (Connection conn = connect()) {</span>
+            // Load tasks
+<span class="nc" id="L98">            String taskSql = &quot;SELECT * FROM tasks WHERE project_name = ?&quot;;</span>
+<span class="nc" id="L99">            try (PreparedStatement pstmt = conn.prepareStatement(taskSql)) {</span>
+<span class="nc" id="L100">                pstmt.setString(1, projectName);</span>
+<span class="nc" id="L101">                ResultSet rs = pstmt.executeQuery();</span>
+                
+<span class="nc" id="L103">                List&lt;Task&gt; tasks = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">                while (rs.next()) {</span>
+<span class="nc" id="L105">                    Task task = new Task(</span>
+<span class="nc" id="L106">                        rs.getInt(&quot;id&quot;),</span>
+<span class="nc" id="L107">                        rs.getString(&quot;title&quot;),</span>
+<span class="nc" id="L108">                        rs.getString(&quot;start_date&quot;),</span>
+<span class="nc" id="L109">                        rs.getString(&quot;end_date&quot;),</span>
+<span class="nc" id="L110">                        rs.getString(&quot;dependencies&quot;)</span>
+                    );
+<span class="nc" id="L112">                    tasks.add(task);</span>
+<span class="nc" id="L113">                }</span>
+<span class="nc" id="L114">                project.setTasks(tasks);</span>
+            }
+            
+            // Load resources with allocations
+<span class="nc" id="L118">            String resourceSql = &quot;SELECT r.name, a.task_id, a.load_percentage &quot; +</span>
+                               &quot;FROM resources r LEFT JOIN allocations a ON r.name = a.resource_name AND r.project_name = a.project_name &quot; +
+                               &quot;WHERE r.project_name = ?&quot;;
+<span class="nc" id="L121">            try (PreparedStatement pstmt = conn.prepareStatement(resourceSql)) {</span>
+<span class="nc" id="L122">                pstmt.setString(1, projectName);</span>
+<span class="nc" id="L123">                ResultSet rs = pstmt.executeQuery();</span>
+                
+<span class="nc" id="L125">                Map&lt;String, List&lt;Allocation&gt;&gt; resourceMap = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">                while (rs.next()) {</span>
+<span class="nc" id="L127">                    String resourceName = rs.getString(&quot;name&quot;);</span>
+<span class="nc" id="L128">                    int taskId = rs.getInt(&quot;task_id&quot;);</span>
+<span class="nc" id="L129">                    int load = rs.getInt(&quot;load_percentage&quot;);</span>
+                    
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                    if (!resourceMap.containsKey(resourceName)) {</span>
+<span class="nc" id="L132">                        resourceMap.put(resourceName, new ArrayList&lt;&gt;());</span>
+                    }
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                    if (taskId &gt; 0) {</span>
+<span class="nc" id="L135">                        resourceMap.get(resourceName).add(new Allocation(taskId, load));</span>
+                    }
+<span class="nc" id="L137">                }</span>
+                
+<span class="nc" id="L139">                List&lt;Resource&gt; resources = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                for (Map.Entry&lt;String, List&lt;Allocation&gt;&gt; entry : resourceMap.entrySet()) {</span>
+<span class="nc" id="L141">                    resources.add(new Resource(entry.getKey(), entry.getValue()));</span>
+<span class="nc" id="L142">                }</span>
+<span class="nc" id="L143">                project.setResources(resources);</span>
+            }
+        }
+        
+<span class="nc" id="L147">        return project;</span>
+    }
+
+    @Override
+    public List&lt;Project&gt; loadAllProjectsFromDatabase() throws Exception {
+<span class="nc" id="L152">        List&lt;Project&gt; projects = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L153">        try (Connection conn = connect()) {</span>
+<span class="nc" id="L154">            String sql = &quot;SELECT DISTINCT name FROM projects&quot;;</span>
+<span class="nc" id="L155">            try (Statement stmt = conn.createStatement();</span>
+<span class="nc" id="L156">                 ResultSet rs = stmt.executeQuery(sql)) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                while (rs.next()) {</span>
+<span class="nc" id="L158">                    projects.add(loadProjectFromDatabase(rs.getString(&quot;name&quot;)));</span>
+                }
+            }
+        }
+<span class="nc" id="L162">        return projects;</span>
+    }
+
+    @Override
+    public void updateTaskInDatabase(Task task) throws Exception {
+<span class="nc" id="L167">        String sql = &quot;UPDATE tasks SET title = ?, start_date = ?, end_date = ?, dependencies = ? WHERE id = ?&quot;;</span>
+<span class="nc" id="L168">        try (Connection conn = connect();</span>
+<span class="nc" id="L169">             PreparedStatement pstmt = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L170">            pstmt.setString(1, task.getTitle());</span>
+<span class="nc" id="L171">            pstmt.setString(2, task.getStart());</span>
+<span class="nc" id="L172">            pstmt.setString(3, task.getEnd());</span>
+<span class="nc" id="L173">            pstmt.setString(4, task.getDependencies());</span>
+<span class="nc" id="L174">            pstmt.setInt(5, task.getId());</span>
+<span class="nc" id="L175">            pstmt.executeUpdate();</span>
+        }
+<span class="nc" id="L177">    }</span>
+
+    @Override
+    public void deleteTaskFromDatabase(int taskId) throws Exception {
+<span class="nc" id="L181">        try (Connection conn = connect()) {</span>
+<span class="nc" id="L182">            conn.setAutoCommit(false);</span>
+            
+            // Delete allocations first
+<span class="nc" id="L185">            String allocSql = &quot;DELETE FROM allocations WHERE task_id = ?&quot;;</span>
+<span class="nc" id="L186">            try (PreparedStatement pstmt = conn.prepareStatement(allocSql)) {</span>
+<span class="nc" id="L187">                pstmt.setInt(1, taskId);</span>
+<span class="nc" id="L188">                pstmt.executeUpdate();</span>
+            }
+            
+            // Delete task
+<span class="nc" id="L192">            String taskSql = &quot;DELETE FROM tasks WHERE id = ?&quot;;</span>
+<span class="nc" id="L193">            try (PreparedStatement pstmt = conn.prepareStatement(taskSql)) {</span>
+<span class="nc" id="L194">                pstmt.setInt(1, taskId);</span>
+<span class="nc" id="L195">                pstmt.executeUpdate();</span>
+            }
+            
+<span class="nc" id="L198">            conn.commit();</span>
+        }
+<span class="nc" id="L200">    }</span>
+
+    @Override
+    public void updateResourceInDatabase(Resource resource) throws Exception {
+        // For simplicity, we delete and reinsert
+<span class="nc" id="L205">        deleteResourceFromDatabase(resource.getName());</span>
+        // Note: Need project name context - this will be handled in the controller
+<span class="nc" id="L207">    }</span>
+
+    @Override
+    public void deleteResourceFromDatabase(String resourceName) throws Exception {
+<span class="nc" id="L211">        try (Connection conn = connect()) {</span>
+<span class="nc" id="L212">            conn.setAutoCommit(false);</span>
+            
+            // Delete allocations first
+<span class="nc" id="L215">            String allocSql = &quot;DELETE FROM allocations WHERE resource_name = ?&quot;;</span>
+<span class="nc" id="L216">            try (PreparedStatement pstmt = conn.prepareStatement(allocSql)) {</span>
+<span class="nc" id="L217">                pstmt.setString(1, resourceName);</span>
+<span class="nc" id="L218">                pstmt.executeUpdate();</span>
+            }
+            
+            // Delete resource
+<span class="nc" id="L222">            String resourceSql = &quot;DELETE FROM resources WHERE name = ?&quot;;</span>
+<span class="nc" id="L223">            try (PreparedStatement pstmt = conn.prepareStatement(resourceSql)) {</span>
+<span class="nc" id="L224">                pstmt.setString(1, resourceName);</span>
+<span class="nc" id="L225">                pstmt.executeUpdate();</span>
+            }
+            
+<span class="nc" id="L228">            conn.commit();</span>
+        }
+<span class="nc" id="L230">    }</span>
+
+    @Override
+    public void saveTaskToDatabase(Task task, String projectName) throws Exception {
+<span class="nc" id="L234">        String sql = &quot;INSERT OR REPLACE INTO tasks(id, title, start_date, end_date, dependencies, project_name) VALUES(?,?,?,?,?,?)&quot;;</span>
+<span class="nc" id="L235">        try (Connection conn = connect();</span>
+<span class="nc" id="L236">             PreparedStatement pstmt = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L237">            pstmt.setInt(1, task.getId());</span>
+<span class="nc" id="L238">            pstmt.setString(2, task.getTitle());</span>
+<span class="nc" id="L239">            pstmt.setString(3, task.getStart());</span>
+<span class="nc" id="L240">            pstmt.setString(4, task.getEnd());</span>
+<span class="nc" id="L241">            pstmt.setString(5, task.getDependencies());</span>
+<span class="nc" id="L242">            pstmt.setString(6, projectName);</span>
+<span class="nc" id="L243">            pstmt.executeUpdate();</span>
+        }
+<span class="nc" id="L245">    }</span>
+
+    @Override
+    public void saveResourceToDatabase(Resource resource, String projectName) throws Exception {
+<span class="nc" id="L249">        try (Connection conn = connect()) {</span>
+<span class="nc" id="L250">            conn.setAutoCommit(false);</span>
+            
+            // Save resource
+<span class="nc" id="L253">            String resourceSql = &quot;INSERT OR REPLACE INTO resources(name, project_name) VALUES(?,?)&quot;;</span>
+<span class="nc" id="L254">            try (PreparedStatement pstmt = conn.prepareStatement(resourceSql)) {</span>
+<span class="nc" id="L255">                pstmt.setString(1, resource.getName());</span>
+<span class="nc" id="L256">                pstmt.setString(2, projectName);</span>
+<span class="nc" id="L257">                pstmt.executeUpdate();</span>
+            }
+            
+            // Save allocations
+<span class="nc" id="L261">            String allocSql = &quot;INSERT OR REPLACE INTO allocations(resource_name, task_id, load_percentage, project_name) VALUES(?,?,?,?)&quot;;</span>
+<span class="nc" id="L262">            try (PreparedStatement pstmt = conn.prepareStatement(allocSql)) {</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                for (Allocation alloc : resource.getAllocations()) {</span>
+<span class="nc" id="L264">                    pstmt.setString(1, resource.getName());</span>
+<span class="nc" id="L265">                    pstmt.setInt(2, alloc.getTaskId());</span>
+<span class="nc" id="L266">                    pstmt.setInt(3, alloc.getLoad());</span>
+<span class="nc" id="L267">                    pstmt.setString(4, projectName);</span>
+<span class="nc" id="L268">                    pstmt.addBatch();</span>
+<span class="nc" id="L269">                }</span>
+<span class="nc" id="L270">                pstmt.executeBatch();</span>
+            }
+            
+<span class="nc" id="L273">            conn.commit();</span>
+        }
+<span class="nc" id="L275">    }</span>
+
+    // Implement ProjectStorage interface methods
+    @Override
+    public void saveProject(Project project, String filename) throws Exception {
+<span class="nc" id="L280">        saveProjectToDatabase(project);</span>
+<span class="nc" id="L281">    }</span>
+
+    @Override
+    public Project loadProject(String projectName) throws Exception {
+<span class="nc" id="L285">        return loadProjectFromDatabase(projectName);</span>
+    }
+
+    @Override
+    public List&lt;Project&gt; loadAllProjects(String directory) throws Exception {
+<span class="nc" id="L290">        return loadAllProjectsFromDatabase();</span>
+    }
+
+    @Override
+    public void saveProjectAsText(Project project, File file) throws IOException {
+        try {
+<span class="nc" id="L296">            saveProjectToDatabase(project);</span>
+<span class="nc" id="L297">        } catch (Exception e) {</span>
+<span class="nc" id="L298">            throw new IOException(&quot;Failed to save to database: &quot; + e.getMessage(), e);</span>
+<span class="nc" id="L299">        }</span>
+<span class="nc" id="L300">    }</span>
+
+    @Override
+    public Project loadProjectFromText(File file) throws IOException {
+        try {
+<span class="nc" id="L305">            return loadProjectFromDatabase(file.getName().replaceFirst(&quot;[.][^.]+$&quot;, &quot;&quot;));</span>
+<span class="nc" id="L306">        } catch (Exception e) {</span>
+<span class="nc" id="L307">            throw new IOException(&quot;Failed to load from database: &quot; + e.getMessage(), e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

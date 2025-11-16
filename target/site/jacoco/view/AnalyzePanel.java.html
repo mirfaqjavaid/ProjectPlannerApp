@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnalyzePanel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ProjectPlanner</a> &gt; <a href="index.source.html" class="el_package">view</a> &gt; <span class="el_source">AnalyzePanel.java</span></div><h1>AnalyzePanel.java</h1><pre class="source lang-java linenums">package view;
+
+import javax.swing.*;
+import java.awt.*;
+import controller.AnalysisController;
+import model.*;
+import java.util.*;
+
+public class AnalyzePanel extends JPanel {
+    private Project project;
+    private JTextArea output;
+
+<span class="nc" id="L13">    public AnalyzePanel(Project project) {</span>
+<span class="nc" id="L14">        this.project = project;</span>
+<span class="nc" id="L15">        setLayout(new BorderLayout());</span>
+
+<span class="nc" id="L17">        JPanel top = new JPanel(new GridLayout(1, 4, 10, 10));</span>
+<span class="nc" id="L18">        JButton comp = new JButton(&quot;Completion&quot;);</span>
+<span class="nc" id="L19">        JButton overlap = new JButton(&quot;Overlaps&quot;);</span>
+<span class="nc" id="L20">        JButton team = new JButton(&quot;Teams&quot;);</span>
+<span class="nc" id="L21">        JButton effort = new JButton(&quot;Effort&quot;);</span>
+
+<span class="nc" id="L23">        top.add(comp); top.add(overlap); top.add(team); top.add(effort);</span>
+<span class="nc" id="L24">        add(top, BorderLayout.NORTH);</span>
+
+<span class="nc" id="L26">        output = new JTextArea();</span>
+<span class="nc" id="L27">        output.setEditable(false);</span>
+<span class="nc" id="L28">        output.setFont(new Font(&quot;Consolas&quot;, Font.PLAIN, 14));</span>
+<span class="nc" id="L29">        add(new JScrollPane(output), BorderLayout.CENTER);</span>
+
+<span class="nc" id="L31">        comp.addActionListener(e -&gt; showCompletion());</span>
+<span class="nc" id="L32">        overlap.addActionListener(e -&gt; showOverlaps());</span>
+<span class="nc" id="L33">        team.addActionListener(e -&gt; showTeams());</span>
+<span class="nc" id="L34">        effort.addActionListener(e -&gt; showEffort());</span>
+<span class="nc" id="L35">    }</span>
+
+    private void showCompletion() {
+<span class="nc" id="L38">        output.setText(&quot;Project Completion: &quot; +</span>
+<span class="nc" id="L39">            AnalysisController.getProjectCompletionDate(project.getTasks()));</span>
+<span class="nc" id="L40">    }</span>
+
+    private void showOverlaps() {
+<span class="nc" id="L43">        output.setText(&quot;Overlapping Tasks:\n&quot;);</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        for (String s : AnalysisController.getOverlappingTasks(project.getTasks()))</span>
+<span class="nc" id="L45">            output.append(&quot; - &quot; + s + &quot;\n&quot;);</span>
+<span class="nc" id="L46">    }</span>
+
+    private  void showTeams() {
+<span class="nc" id="L49">        output.setText(&quot;Teams by Task:\n&quot;);</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        for (Task t : project.getTasks()) {</span>
+<span class="nc" id="L51">          java.util.List&lt;String&gt; team = AnalysisController.getTeamForTask(t.getId(), project.getResources());</span>
+
+<span class="nc" id="L53">            output.append(t.getTitle() + &quot; → &quot; + team + &quot;\n&quot;);</span>
+<span class="nc" id="L54">        }</span>
+<span class="nc" id="L55">    }</span>
+
+    private void showEffort() {
+<span class="nc" id="L58">        output.setText(&quot;Effort Breakdown (hours):\n&quot;);</span>
+<span class="nc" id="L59">        Map&lt;String, Long&gt; map = AnalysisController.getEffortHoursPerResource(project.getResources(), project.getTasks());</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        for (String r : map.keySet()) output.append(r + &quot; → &quot; + map.get(r) + &quot; hrs\n&quot;);</span>
+<span class="nc" id="L61">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
